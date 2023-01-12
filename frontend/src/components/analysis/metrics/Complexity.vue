@@ -1,5 +1,5 @@
 <script lang="ts" setup>
-const props = defineProps(['data'])
+const props = defineProps(['data', 'error'])
 </script>
 
 <template>
@@ -8,16 +8,17 @@ const props = defineProps(['data'])
       <h3 class="card-title">Functions Complexity</h3>
     </div>
     <div class="card-body">
-      <div v-if="props.data == undefined" class="overlay-wrapper">
+      <div v-if="props.data == undefined && props.error == undefined" class="overlay-wrapper">
         <div class="overlay">
           <i class="fas fa-3x fa-sync-alt fa-spin"></i>
           <div class="text-bold pt-2">Loading...</div>
         </div>
         .......
       </div>
-      <ul v-else-if="props.data == null" class="list-group list-group-unbordered mb-3">
+      <ul v-else-if="props.error != null" class="list-group list-group-unbordered mb-3">
         <li class="list-group-item">
-          <b>Can't execute GoCyclo tool</b>
+          <div><b>Can't execute tool</b></div>
+          <div>{{ props.error }}</div>
         </li>
       </ul>
       <ul v-else class="list-group list-group-unbordered mb-3">
@@ -32,7 +33,7 @@ const props = defineProps(['data'])
               <li>
                 <b>Package: </b>{{ f.Package }}
                 <ul>
-                  <li class="function-details">{{ f.Function }} in <i>{{ f.File }}</i></li>
+                  <li class="function-details">({{ f.Complexity }}) {{ f.Function }} in <i>{{ f.File }}</i></li>
                 </ul>
               </li>
             </ul>
