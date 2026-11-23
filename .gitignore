@@ -20,6 +20,7 @@ frontend/dist/assets/*
 frontend/dist/index.html
 frontend/node_modules
 frontend/package.json.md5
+web/node_modules
 sample_db
 
 .DS_Store

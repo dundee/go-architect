@@ -1,4 +1,13 @@
-.PHONY: wails-install wails-check wails-build install-macos wails-build-windows build-linux build-windows
+.PHONY: wails-install wails-check wails-build install-macos wails-build-windows build-linux build-windows web-install web-build web-run
+
+web-install:
+	cd web && npm install
+
+web-build:
+	cd web && npm run build
+
+web-run: web-build
+	go run ./cmd/web -path .
 
 wails-build: wails-install
 	CGO_ENABLED=1 wails build -clean

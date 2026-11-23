@@ -1,0 +1,1 @@
+{"root":["./src/app.tsx","./src/main.tsx","./src/vite-env.d.ts","./src/api/client.ts","./src/components/instabilitychart.tsx","./src/components/instabilitytable.tsx","./src/components/instabilityview.tsx","./src/components/projectswitchermodal.tsx","./src/types/api.ts","./src/utils/instability.ts"],"version":"5.8.3"}
