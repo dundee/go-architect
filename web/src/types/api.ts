@@ -219,6 +219,48 @@ export interface VCSResponse {
   duration_ms: number
 }
 
+export type SamplingMode = 'buckets' | 'tags'
+
+export interface SnapshotMetrics {
+  loc: number
+  packages: number
+  source_files: number
+  structs: number
+  interfaces: number
+  functions: number
+  methods: number
+  comments_total_lines: number
+  comments_ratio: number
+  interface_avg_methods: number
+  avg_distance: number
+  zone_of_pain_count: number
+  zone_of_uselessness_count: number
+  cyclomatic_complexity_avg?: number
+  cognitive_complexity_avg?: number
+}
+
+export interface CommitSnapshot {
+  commit_sha: string
+  short_sha: string
+  date: string
+  message: string
+  tag?: string
+  metrics: SnapshotMetrics
+  cached: boolean
+}
+
+export interface TrendsReport {
+  mode: SamplingMode
+  months: number
+  include_complexity: boolean
+  points: CommitSnapshot[]
+  cached_count: number
+  computed_count: number
+  skipped_count: number
+  skipped_reasons?: string[]
+  duration_ms: number
+}
+
 export interface ApiErrorResponse {
   error: string
 }

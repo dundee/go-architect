@@ -11,6 +11,7 @@ import {
   Loader2,
   Network,
   RefreshCw,
+  TrendingUp,
 } from 'lucide-react'
 import { fetchProjectContext } from './api/client'
 import { CouplingView } from './components/CouplingView'
@@ -19,10 +20,18 @@ import { DSMView } from './components/DSMView'
 import { InstabilityView } from './components/InstabilityView'
 import { MetricsView } from './components/MetricsView'
 import { ProjectSwitcherModal } from './components/ProjectSwitcherModal'
+import { TrendsView } from './components/TrendsView'
 import { VCSView } from './components/VCSView'
 import type { ProjectContextResponse } from './types/api'
 
-type ToolId = 'instability' | 'graph' | 'dsm' | 'coupling' | 'metrics' | 'vcs'
+type ToolId =
+  | 'instability'
+  | 'graph'
+  | 'dsm'
+  | 'coupling'
+  | 'metrics'
+  | 'trends'
+  | 'vcs'
 
 interface RouteState {
   tool: ToolId
@@ -83,6 +92,15 @@ const TOOLS: Array<{
     enabled: true,
   },
   {
+    id: 'trends',
+    path: '/trends',
+    label: 'Trends',
+    description:
+      'Track size, Instability health, and optional complexity across sampled Git history.',
+    icon: TrendingUp,
+    enabled: true,
+  },
+  {
     id: 'vcs',
     path: '/vcs',
     label: 'VCS Analysis',
@@ -102,6 +120,7 @@ function parseLocation(): RouteState {
   if (pathname === '/dsm') return { tool: 'dsm', dependency: null }
   if (pathname === '/coupling') return { tool: 'coupling', dependency }
   if (pathname === '/metrics') return { tool: 'metrics', dependency: null }
+  if (pathname === '/trends') return { tool: 'trends', dependency: null }
   if (pathname === '/vcs') return { tool: 'vcs', dependency: null }
   return { tool: 'instability', dependency: null }
 }
@@ -364,6 +383,12 @@ export function App() {
             )}
             {route.tool === 'metrics' && (
               <MetricsView
+                project={context.project}
+                refreshSignal={refreshSignal}
+              />
+            )}
+            {route.tool === 'trends' && (
+              <TrendsView
                 project={context.project}
                 refreshSignal={refreshSignal}
               />

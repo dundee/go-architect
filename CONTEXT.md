@@ -43,3 +43,11 @@ The degree to which the Project's packages and files reference a specific target
 
 **Bus Factor Risk**:
 The maintainability risk caused by too few contributors modifying a path or file within the Repository's selected time window: `High` (1 contributor), `Moderate` (fewer than 3 contributors when the Repository has more than 4), or `Healthy`.
+
+### Historical Trends
+
+**Metric Snapshot**:
+The set of architectural and code metrics (size, declarations, comments, Instability health, and optional complexity) measured for the Project at a specific Git commit.
+
+**Trend Series**:
+A chronological sequence of Metric Snapshots sampled from the Repository's history (by time buckets or Git tags) to reveal how the Project's structure evolves.

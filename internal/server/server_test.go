@@ -140,6 +140,19 @@ func TestServerEndpoints(t *testing.T) {
 		require.NotNil(t, resp.VCS.AuthorsInfo.AuthorDetails)
 	})
 
+	t.Run("GET /api/trends", func(t *testing.T) {
+		reqInvalid := httptest.NewRequest(http.MethodGet, "/api/trends?mode=invalid", nil)
+		recInvalid := httptest.NewRecorder()
+		srv.Handler().ServeHTTP(recInvalid, reqInvalid)
+		require.Equal(t, http.StatusBadRequest, recInvalid.Code)
+
+		req := httptest.NewRequest(http.MethodGet, "/api/trends?mode=buckets&months=12&limit=3", nil)
+		rec := httptest.NewRecorder()
+		srv.Handler().ServeHTTP(rec, req)
+		require.Equal(t, http.StatusOK, rec.Code)
+		require.Contains(t, rec.Body.String(), `"points"`)
+	})
+
 	t.Run("POST /api/project rejects invalid path", func(t *testing.T) {
 		body := bytes.NewBufferString(`{"path":"/definitely/nonexistent/path/xyz"}`)
 		req := httptest.NewRequest(http.MethodPost, "/api/project", body)

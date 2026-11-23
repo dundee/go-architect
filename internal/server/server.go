@@ -28,6 +28,7 @@ import (
 	"github.com/go-architect/go-architect-lib/repository"
 	"github.com/go-architect/go-architect/backend/git"
 	"github.com/go-architect/go-architect/backend/gocyclo"
+	"github.com/go-architect/go-architect/internal/trends"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -36,6 +37,7 @@ type Server struct {
 	projectInfo *project.ProjectInfo
 	repoInfo    *repository.RepositoryInfo
 	distFS      fs.FS
+	trendsCache *trends.Cache
 	mux         *http.ServeMux
 }
 
@@ -96,9 +98,15 @@ type switchProjectRequest struct {
 }
 
 func New(initialPath string, orgPackages []string, distFS fs.FS) (*Server, error) {
+	var cache *trends.Cache
+	if dir, err := trends.DefaultCacheDir(); err == nil {
+		cache = trends.NewCache(dir)
+	}
+
 	s := &Server{
-		distFS: distFS,
-		mux:    http.NewServeMux(),
+		distFS:      distFS,
+		trendsCache: cache,
+		mux:         http.NewServeMux(),
 	}
 
 	if err := s.LoadProject(initialPath, orgPackages); err != nil {
@@ -199,6 +207,7 @@ func (s *Server) registerRoutes() {
 	s.mux.HandleFunc("GET /api/coupling", s.handleGetCoupling)
 	s.mux.HandleFunc("GET /api/metrics", s.handleGetMetrics)
 	s.mux.HandleFunc("GET /api/vcs", s.handleGetVCS)
+	s.mux.HandleFunc("GET /api/trends", s.handleGetTrends)
 	s.mux.HandleFunc("/", s.handleSPA)
 }
 
@@ -511,6 +520,60 @@ func (s *Server) handleGetVCS(w http.ResponseWriter, r *http.Request) {
 		Months:     months,
 		DurationMs: time.Since(start).Milliseconds(),
 	})
+}
+
+func (s *Server) handleGetTrends(w http.ResponseWriter, r *http.Request) {
+	proj := s.currentProjectSnapshot()
+	if proj == nil {
+		writeError(w, http.StatusBadRequest, "no Go project is loaded")
+		return
+	}
+
+	mode := trends.ModeBuckets
+	if rawMode := strings.TrimSpace(r.URL.Query().Get("mode")); rawMode != "" {
+		switch trends.SamplingMode(rawMode) {
+		case trends.ModeBuckets, trends.ModeTags:
+			mode = trends.SamplingMode(rawMode)
+		default:
+			writeError(w, http.StatusBadRequest, "query parameter 'mode' must be 'buckets' or 'tags'")
+			return
+		}
+	}
+
+	months := 12
+	if rawMonths := strings.TrimSpace(r.URL.Query().Get("months")); rawMonths != "" {
+		parsed, err := strconv.Atoi(rawMonths)
+		if err != nil || parsed < 0 {
+			writeError(w, http.StatusBadRequest, "query parameter 'months' must be a non-negative integer")
+			return
+		}
+		months = parsed
+	}
+
+	maxPoints := 12
+	if rawLimit := strings.TrimSpace(r.URL.Query().Get("limit")); rawLimit != "" {
+		parsed, err := strconv.Atoi(rawLimit)
+		if err != nil || parsed < 2 || parsed > 30 {
+			writeError(w, http.StatusBadRequest, "query parameter 'limit' must be between 2 and 30")
+			return
+		}
+		maxPoints = parsed
+	}
+
+	includeComplexity := strings.EqualFold(strings.TrimSpace(r.URL.Query().Get("include_complexity")), "true")
+
+	report, err := trends.Analyze(r.Context(), proj, s.trendsCache, trends.Options{
+		Mode:              mode,
+		Months:            months,
+		MaxPoints:         maxPoints,
+		IncludeComplexity: includeComplexity,
+	})
+	if err != nil {
+		writeError(w, http.StatusBadRequest, fmt.Sprintf("analyze historical trends: %v", err))
+		return
+	}
+
+	writeJSON(w, http.StatusOK, report)
 }
 
 func (s *Server) handleSPA(w http.ResponseWriter, r *http.Request) {

@@ -6,6 +6,8 @@ import type {
   InstabilityResponse,
   MetricsResponse,
   ProjectContextResponse,
+  SamplingMode,
+  TrendsReport,
   VCSResponse,
 } from '../types/api'
 
@@ -114,4 +116,24 @@ export function fetchVCS(
 ): Promise<VCSResponse> {
   const params = new URLSearchParams({ months: String(months) })
   return requestJson<VCSResponse>(`/api/vcs?${params.toString()}`, { signal })
+}
+
+export function fetchTrends(
+  options: {
+    mode: SamplingMode
+    months: number
+    limit?: number
+    includeComplexity?: boolean
+  },
+  signal?: AbortSignal,
+): Promise<TrendsReport> {
+  const params = new URLSearchParams({
+    mode: options.mode,
+    months: String(options.months),
+    limit: String(options.limit ?? 12),
+    include_complexity: String(Boolean(options.includeComplexity)),
+  })
+  return requestJson<TrendsReport>(`/api/trends?${params.toString()}`, {
+    signal,
+  })
 }
