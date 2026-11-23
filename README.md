@@ -22,12 +22,12 @@ Go-Architect is a Software Architecture Analysis Tool for Go Projects. Run it fr
 
 ### Install with Go
 ```bash
-go install github.com/go-architect/go-architect/cmd/web@latest
+go install github.com/dundee/go-architect/cmd/web@latest
 ```
 
 ### Build from Source
 ```bash
-git clone https://github.com/go-architect/go-architect
+git clone https://github.com/dundee/go-architect
 cd go-architect
 make build
 ```
