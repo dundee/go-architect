@@ -5,16 +5,19 @@ import type { ProjectContextResponse } from '../types/api'
 
 interface ProjectSwitcherModalProps {
   currentPath: string
+  currentOrgPackages: string[]
   onClose: () => void
   onSwitched: (ctx: ProjectContextResponse) => void
 }
 
 export function ProjectSwitcherModal({
   currentPath,
+  currentOrgPackages,
   onClose,
   onSwitched,
 }: ProjectSwitcherModalProps) {
   const [pathInput, setPathInput] = useState(currentPath)
+  const [orgInput, setOrgInput] = useState(currentOrgPackages.join('\n'))
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -22,18 +25,23 @@ export function ProjectSwitcherModal({
     e.preventDefault()
     const trimmed = pathInput.trim()
     if (!trimmed) {
-      setError('Please enter a path to a Go module directory.')
+      setError('Please enter a path to a Go Project directory.')
       return
     }
+    const parsedOrgPackages = orgInput
+      .split(/[\n,]+/)
+      .map((item) => item.trim())
+      .filter(Boolean)
+
     setSubmitting(true)
     setError(null)
     try {
-      const ctx = await switchProjectPath(trimmed)
+      const ctx = await switchProjectPath(trimmed, parsedOrgPackages)
       onSwitched(ctx)
       onClose()
     } catch (err: unknown) {
       setError(
-        err instanceof Error ? err.message : 'Failed to load Go project',
+        err instanceof Error ? err.message : 'Failed to load Go Project',
       )
     } finally {
       setSubmitting(false)
@@ -58,11 +66,11 @@ export function ProjectSwitcherModal({
                 id="switch-project-title"
                 className="text-base font-semibold text-slate-900"
               >
-                Open Go Module Path
+                Project Settings
               </h2>
               <p className="text-xs text-slate-500">
-                Point Go Architect at another local directory containing a{' '}
-                <code>go.mod</code>.
+                Configure target local Go Project directory and organization
+                package prefixes.
               </p>
             </div>
           </div>
@@ -95,6 +103,31 @@ export function ProjectSwitcherModal({
             />
           </div>
 
+          <div>
+            <label
+              htmlFor="org-packages-input"
+              className="mb-1.5 block text-xs font-medium text-slate-700"
+            >
+              Organization Package Prefixes{' '}
+              <span className="font-normal text-slate-400">
+                (optional, one per line or comma-separated)
+              </span>
+            </label>
+            <textarea
+              id="org-packages-input"
+              rows={3}
+              value={orgInput}
+              onChange={(e) => setOrgInput(e.target.value)}
+              placeholder="github.com/my-org/"
+              className="w-full rounded-lg border border-slate-300 px-3 py-2 font-mono text-xs text-slate-900 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 focus:outline-none"
+            />
+            <p className="mt-1 text-[11px] text-slate-500">
+              Used by Dependency Graph and DSM to distinguish{' '}
+              <code className="font-mono">organization</code> packages from
+              third-party <code className="font-mono">external</code> ones.
+            </p>
+          </div>
+
           {error && (
             <div className="flex items-start gap-2 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-800">
               <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-rose-600" />
@@ -116,7 +149,7 @@ export function ProjectSwitcherModal({
               className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-4 py-2 text-xs font-semibold text-white shadow-xs transition hover:bg-indigo-700 disabled:opacity-60"
             >
               {submitting && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
-              Load Project
+              Apply Project
             </button>
           </div>
         </form>

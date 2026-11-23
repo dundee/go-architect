@@ -34,6 +34,62 @@ export interface InstabilityResponse {
   duration_ms: number
 }
 
+export interface ModuleDependencyGraph {
+  module: string
+  internal: string[]
+  external: string[]
+  organization: string[]
+  standard: string[]
+  relations: Record<string, string[]>
+}
+
+export interface DependencyGraphResponse {
+  graph: ModuleDependencyGraph
+  duration_ms: number
+}
+
+export interface DependencyStructureMatrix {
+  module: string
+  packages: string[]
+  dependencies: number[][]
+}
+
+export interface DSMResponse {
+  dsm: DependencyStructureMatrix
+  duration_ms: number
+}
+
+export interface CouplingDetail {
+  line: number
+  details: string
+}
+
+export interface FileCoupling {
+  package: string
+  file: string
+  file_content: string
+  coupling_lines: number[] | null
+  coupling_level: number
+  details: CouplingDetail[] | null
+}
+
+export interface PackageCoupling {
+  package: string
+  coupling_level: number
+  details: FileCoupling[] | null
+}
+
+export interface DependencyCoupling {
+  dependency: string
+  coupling_level: number
+  details: PackageCoupling[]
+}
+
+export interface CouplingResponse {
+  coupling: DependencyCoupling
+  duration_ms: number
+}
+
 export interface ApiErrorResponse {
   error: string
 }

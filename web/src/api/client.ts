@@ -1,5 +1,8 @@
 import type {
   ApiErrorResponse,
+  CouplingResponse,
+  DependencyGraphResponse,
+  DSMResponse,
   InstabilityResponse,
   ProjectContextResponse,
 } from '../types/api'
@@ -50,21 +53,51 @@ async function requestJson<T>(
   return parsed as T
 }
 
-export function fetchProjectContext(signal?: AbortSignal): Promise<ProjectContextResponse> {
+export function fetchProjectContext(
+  signal?: AbortSignal,
+): Promise<ProjectContextResponse> {
   return requestJson<ProjectContextResponse>('/api/project', { signal })
 }
 
 export function switchProjectPath(
   path: string,
+  organizationPackages?: string[],
   signal?: AbortSignal,
 ): Promise<ProjectContextResponse> {
   return requestJson<ProjectContextResponse>('/api/project', {
     method: 'POST',
-    body: JSON.stringify({ path }),
+    body: JSON.stringify({
+      path,
+      organization_packages: organizationPackages,
+    }),
     signal,
   })
 }
 
-export function fetchInstability(signal?: AbortSignal): Promise<InstabilityResponse> {
+export function fetchInstability(
+  signal?: AbortSignal,
+): Promise<InstabilityResponse> {
   return requestJson<InstabilityResponse>('/api/instability', { signal })
+}
+
+export function fetchDependencyGraph(
+  signal?: AbortSignal,
+): Promise<DependencyGraphResponse> {
+  return requestJson<DependencyGraphResponse>('/api/dependency-graph', {
+    signal,
+  })
+}
+
+export function fetchDSM(signal?: AbortSignal): Promise<DSMResponse> {
+  return requestJson<DSMResponse>('/api/dsm', { signal })
+}
+
+export function fetchCoupling(
+  dependency: string,
+  signal?: AbortSignal,
+): Promise<CouplingResponse> {
+  const params = new URLSearchParams({ dependency })
+  return requestJson<CouplingResponse>(`/api/coupling?${params.toString()}`, {
+    signal,
+  })
 }

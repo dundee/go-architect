@@ -25,7 +25,7 @@ func TestServerEndpoints(t *testing.T) {
 	repoRoot, err := filepath.Abs("../..")
 	require.NoError(t, err)
 
-	srv, err := New(repoRoot, testDistFS())
+	srv, err := New(repoRoot, []string{"github.com/go-architect/go-architect-lib"}, testDistFS())
 	require.NoError(t, err)
 
 	t.Run("GET /api/health", func(t *testing.T) {
@@ -47,6 +47,7 @@ func TestServerEndpoints(t *testing.T) {
 		require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &resp))
 		require.NotNil(t, resp.Project)
 		require.Equal(t, "github.com/go-architect/go-architect", resp.Project.Package)
+		require.Equal(t, []string{"github.com/go-architect/go-architect-lib"}, resp.Project.OrganizationPackages)
 	})
 
 	t.Run("GET /api/instability", func(t *testing.T) {
@@ -58,6 +59,52 @@ func TestServerEndpoints(t *testing.T) {
 		var resp InstabilityResponse
 		require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &resp))
 		require.NotEmpty(t, resp.Packages)
+	})
+
+	t.Run("GET /api/dependency-graph", func(t *testing.T) {
+		req := httptest.NewRequest(http.MethodGet, "/api/dependency-graph", nil)
+		rec := httptest.NewRecorder()
+		srv.Handler().ServeHTTP(rec, req)
+
+		require.Equal(t, http.StatusOK, rec.Code)
+		var resp DependencyGraphResponse
+		require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &resp))
+		require.NotNil(t, resp.Graph)
+		require.Equal(t, "github.com/go-architect/go-architect", resp.Graph.Module)
+		require.NotEmpty(t, resp.Graph.Internal)
+		require.NotEmpty(t, resp.Graph.Relations)
+	})
+
+	t.Run("GET /api/dsm", func(t *testing.T) {
+		req := httptest.NewRequest(http.MethodGet, "/api/dsm", nil)
+		rec := httptest.NewRecorder()
+		srv.Handler().ServeHTTP(rec, req)
+
+		require.Equal(t, http.StatusOK, rec.Code)
+		var resp DSMResponse
+		require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &resp))
+		require.NotNil(t, resp.DSM)
+		require.NotEmpty(t, resp.DSM.Packages)
+		require.Equal(t, len(resp.DSM.Packages), len(resp.DSM.Dependencies))
+	})
+
+	t.Run("GET /api/coupling", func(t *testing.T) {
+		reqMissing := httptest.NewRequest(http.MethodGet, "/api/coupling", nil)
+		recMissing := httptest.NewRecorder()
+		srv.Handler().ServeHTTP(recMissing, reqMissing)
+		require.Equal(t, http.StatusBadRequest, recMissing.Code)
+
+		req := httptest.NewRequest(http.MethodGet, "/api/coupling?dependency=github.com/go-architect/go-architect-lib/instability", nil)
+		rec := httptest.NewRecorder()
+		srv.Handler().ServeHTTP(rec, req)
+
+		require.Equal(t, http.StatusOK, rec.Code)
+		var resp CouplingResponse
+		require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &resp))
+		require.NotNil(t, resp.Coupling)
+		require.Equal(t, "github.com/go-architect/go-architect-lib/instability", resp.Coupling.Dependency)
+		require.Greater(t, resp.Coupling.CouplingLevel, 0)
+		require.NotEmpty(t, resp.Coupling.PackageDetails)
 	})
 
 	t.Run("POST /api/project rejects invalid path", func(t *testing.T) {
@@ -79,7 +126,7 @@ func TestServerEndpoints(t *testing.T) {
 		require.Equal(t, http.StatusOK, recAsset.Code)
 		require.Equal(t, "console.log('ok')", recAsset.Body.String())
 
-		reqFallback := httptest.NewRequest(http.MethodGet, "/instability", nil)
+		reqFallback := httptest.NewRequest(http.MethodGet, "/graph", nil)
 		recFallback := httptest.NewRecorder()
 		srv.Handler().ServeHTTP(recFallback, reqFallback)
 		require.Equal(t, http.StatusOK, recFallback.Code)
