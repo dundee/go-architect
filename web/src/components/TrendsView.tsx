@@ -930,14 +930,17 @@ function TrendChartCard({
           {/* Invisible hit columns for smooth hover */}
           {points.map((p, idx) => {
             const x = getX(idx)
-            const colW =
-              points.length <= 1 ? PLOT_W : PLOT_W / Math.max(1, points.length - 1)
+            const step =
+              points.length <= 1 ? PLOT_W : PLOT_W / (points.length - 1)
+            const left = idx === 0 ? PAD_L : x - step / 2
+            const right =
+              idx === points.length - 1 ? PAD_L + PLOT_W : x + step / 2
             return (
               <rect
                 key={p.commit_sha}
-                x={Math.max(PAD_L, x - colW / 2)}
+                x={left}
                 y={PAD_T}
-                width={colW}
+                width={Math.max(1, right - left)}
                 height={PLOT_H}
                 fill="transparent"
                 className="cursor-crosshair"
@@ -947,47 +950,59 @@ function TrendChartCard({
           })}
         </svg>
 
-        {/* Compact Hover Readout */}
-        {hoveredPoint && hoveredIdx !== null && (
-          <div className="mt-1 flex flex-wrap items-center justify-between gap-2 rounded-lg bg-slate-900 px-3 py-1.5 text-[11px] text-slate-100">
-            <div className="flex min-w-0 items-center gap-2">
-              <span className="font-mono font-semibold text-indigo-300">
-                {hoveredPoint.short_sha}
-              </span>
-              {hoveredPoint.tag && (
-                <span className="rounded bg-white/10 px-1.5 py-0.5 font-mono text-[10px]">
-                  {hoveredPoint.tag}
+        {/* Fixed-height Hover Readout (prevents layout shift / flickering) */}
+        <div
+          className={`mt-2 flex h-8 items-center justify-between gap-2 overflow-hidden rounded-lg px-3 text-[11px] transition-colors ${
+            hoveredPoint && hoveredIdx !== null
+              ? 'bg-slate-900 text-slate-100'
+              : 'border border-slate-100 bg-slate-50 text-slate-400'
+          }`}
+        >
+          {hoveredPoint && hoveredIdx !== null ? (
+            <>
+              <div className="flex min-w-0 items-center gap-2">
+                <span className="shrink-0 font-mono font-semibold text-indigo-300">
+                  {hoveredPoint.short_sha}
                 </span>
-              )}
-              <span className="text-slate-400">
-                {formatShortDate(hoveredPoint.date)}
-              </span>
-              <span className="truncate text-slate-300">
-                {hoveredPoint.message}
-              </span>
-            </div>
-            <div className="flex shrink-0 items-center gap-3 font-mono">
-              {series.map((s) => {
-                const v = s.getValue(hoveredPoint)
-                const txt =
-                  v === null
-                    ? 'N/A'
-                    : s.formatValue
-                      ? s.formatValue(v)
-                      : String(v)
-                return (
-                  <span key={s.id} className="inline-flex items-center gap-1">
-                    <span
-                      className="h-2 w-2 rounded-full"
-                      style={{ backgroundColor: s.color }}
-                    />
-                    <span>{txt}</span>
+                {hoveredPoint.tag && (
+                  <span className="shrink-0 rounded bg-white/10 px-1.5 py-0.5 font-mono text-[10px]">
+                    {hoveredPoint.tag}
                   </span>
-                )
-              })}
-            </div>
-          </div>
-        )}
+                )}
+                <span className="shrink-0 text-slate-400">
+                  {formatShortDate(hoveredPoint.date)}
+                </span>
+                <span className="truncate text-slate-300">
+                  {hoveredPoint.message}
+                </span>
+              </div>
+              <div className="flex shrink-0 items-center gap-3 font-mono">
+                {series.map((s) => {
+                  const v = s.getValue(hoveredPoint)
+                  const txt =
+                    v === null
+                      ? 'N/A'
+                      : s.formatValue
+                        ? s.formatValue(v)
+                        : String(v)
+                  return (
+                    <span key={s.id} className="inline-flex items-center gap-1">
+                      <span
+                        className="h-2 w-2 rounded-full"
+                        style={{ backgroundColor: s.color }}
+                      />
+                      <span>{txt}</span>
+                    </span>
+                  )
+                })}
+              </div>
+            </>
+          ) : (
+            <span className="truncate">
+              Hover chart points to inspect commit metrics
+            </span>
+          )}
+        </div>
       </div>
     </div>
   )
