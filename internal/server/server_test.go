@@ -107,6 +107,39 @@ func TestServerEndpoints(t *testing.T) {
 		require.NotEmpty(t, resp.Coupling.PackageDetails)
 	})
 
+	t.Run("GET /api/metrics", func(t *testing.T) {
+		req := httptest.NewRequest(http.MethodGet, "/api/metrics", nil)
+		rec := httptest.NewRecorder()
+		srv.Handler().ServeHTTP(rec, req)
+
+		require.Equal(t, http.StatusOK, rec.Code)
+		var resp MetricsResponse
+		require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &resp))
+		require.NotNil(t, resp.LOC)
+		require.Greater(t, resp.LOC.Total, 0)
+		require.NotNil(t, resp.Types)
+		require.NotNil(t, resp.Interfaces)
+		require.NotNil(t, resp.Comments)
+	})
+
+	t.Run("GET /api/vcs", func(t *testing.T) {
+		reqInvalid := httptest.NewRequest(http.MethodGet, "/api/vcs?months=-2", nil)
+		recInvalid := httptest.NewRecorder()
+		srv.Handler().ServeHTTP(recInvalid, reqInvalid)
+		require.Equal(t, http.StatusBadRequest, recInvalid.Code)
+
+		req := httptest.NewRequest(http.MethodGet, "/api/vcs?months=12", nil)
+		rec := httptest.NewRecorder()
+		srv.Handler().ServeHTTP(rec, req)
+
+		require.Equal(t, http.StatusOK, rec.Code)
+		var resp VCSResponse
+		require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &resp))
+		require.Equal(t, 12, resp.Months)
+		require.NotNil(t, resp.VCS)
+		require.NotNil(t, resp.VCS.AuthorsInfo.AuthorDetails)
+	})
+
 	t.Run("POST /api/project rejects invalid path", func(t *testing.T) {
 		body := bytes.NewBufferString(`{"path":"/definitely/nonexistent/path/xyz"}`)
 		req := httptest.NewRequest(http.MethodPost, "/api/project", body)

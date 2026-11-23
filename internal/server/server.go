@@ -1,14 +1,17 @@
 package server
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"io/fs"
 	"net/http"
+	"os/exec"
 	"path"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -17,8 +20,15 @@ import (
 	"github.com/go-architect/go-architect-lib/dependency"
 	"github.com/go-architect/go-architect-lib/dsm"
 	"github.com/go-architect/go-architect-lib/instability"
+	"github.com/go-architect/go-architect-lib/metrics/comments"
+	"github.com/go-architect/go-architect-lib/metrics/interfaces"
+	"github.com/go-architect/go-architect-lib/metrics/loc"
+	"github.com/go-architect/go-architect-lib/metrics/types"
 	"github.com/go-architect/go-architect-lib/project"
 	"github.com/go-architect/go-architect-lib/repository"
+	"github.com/go-architect/go-architect/backend/git"
+	"github.com/go-architect/go-architect/backend/gocyclo"
+	"golang.org/x/sync/errgroup"
 )
 
 type Server struct {
@@ -52,6 +62,28 @@ type DSMResponse struct {
 type CouplingResponse struct {
 	Coupling   *coupling.DependencyCoupling `json:"coupling"`
 	DurationMs int64                        `json:"duration_ms"`
+}
+
+type ComplexityResult struct {
+	Data        *gocyclo.GoCycloOutput `json:"data"`
+	Error       string                 `json:"error,omitempty"`
+	InstallHint string                 `json:"install_hint,omitempty"`
+}
+
+type MetricsResponse struct {
+	LOC                  *loc.ProjectLOC              `json:"loc"`
+	Types                *types.ProjectTypes          `json:"types"`
+	Interfaces           *interfaces.InterfaceMetrics `json:"interfaces"`
+	Comments             *comments.CommentsMetrics    `json:"comments"`
+	CyclomaticComplexity ComplexityResult             `json:"cyclomatic_complexity"`
+	CognitiveComplexity  ComplexityResult             `json:"cognitive_complexity"`
+	DurationMs           int64                        `json:"duration_ms"`
+}
+
+type VCSResponse struct {
+	VCS        *git.VCSAnalysisInfo `json:"vcs"`
+	Months     int                  `json:"months"`
+	DurationMs int64                `json:"duration_ms"`
 }
 
 type ErrorResponse struct {
@@ -165,6 +197,8 @@ func (s *Server) registerRoutes() {
 	s.mux.HandleFunc("GET /api/dependency-graph", s.handleGetDependencyGraph)
 	s.mux.HandleFunc("GET /api/dsm", s.handleGetDSM)
 	s.mux.HandleFunc("GET /api/coupling", s.handleGetCoupling)
+	s.mux.HandleFunc("GET /api/metrics", s.handleGetMetrics)
+	s.mux.HandleFunc("GET /api/vcs", s.handleGetVCS)
 	s.mux.HandleFunc("/", s.handleSPA)
 }
 
@@ -317,6 +351,164 @@ func (s *Server) handleGetCoupling(w http.ResponseWriter, r *http.Request) {
 
 	writeJSON(w, http.StatusOK, CouplingResponse{
 		Coupling:   result,
+		DurationMs: time.Since(start).Milliseconds(),
+	})
+}
+
+func (s *Server) handleGetMetrics(w http.ResponseWriter, r *http.Request) {
+	proj := s.currentProjectSnapshot()
+	if proj == nil {
+		writeError(w, http.StatusBadRequest, "no Go project is loaded")
+		return
+	}
+
+	start := time.Now()
+
+	var (
+		locRes      *loc.ProjectLOC
+		typesRes    *types.ProjectTypes
+		ifaceRes    *interfaces.InterfaceMetrics
+		commentsRes *comments.CommentsMetrics
+		cycloRes    ComplexityResult
+		cognitRes   ComplexityResult
+	)
+
+	g, ctx := errgroup.WithContext(r.Context())
+
+	g.Go(func() error {
+		res, err := loc.CountLoc(proj)
+		if err != nil {
+			return fmt.Errorf("count LOC: %w", err)
+		}
+		locRes = res
+		return nil
+	})
+
+	g.Go(func() error {
+		res, err := types.ResolveProjectTypes(proj)
+		if err != nil {
+			return fmt.Errorf("resolve project types: %w", err)
+		}
+		typesRes = res
+		return nil
+	})
+
+	g.Go(func() error {
+		res, err := interfaces.ResolveInterfaceMetrics(proj)
+		if err != nil {
+			return fmt.Errorf("resolve interface metrics: %w", err)
+		}
+		ifaceRes = res
+		return nil
+	})
+
+	g.Go(func() error {
+		res, err := comments.ResolveCommentsMetrics(proj)
+		if err != nil {
+			return fmt.Errorf("resolve comments metrics: %w", err)
+		}
+		commentsRes = res
+		return nil
+	})
+
+	g.Go(func() error {
+		cycloRes = runComplexityTool(
+			ctx,
+			"gocyclo",
+			proj.Path,
+			"go install github.com/fzipp/gocyclo/cmd/gocyclo@latest",
+		)
+		return nil
+	})
+
+	g.Go(func() error {
+		cognitRes = runComplexityTool(
+			ctx,
+			"gocognit",
+			proj.Path,
+			"go install github.com/uudashr/gocognit/cmd/gocognit@latest",
+		)
+		return nil
+	})
+
+	if err := g.Wait(); err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	writeJSON(w, http.StatusOK, MetricsResponse{
+		LOC:                  locRes,
+		Types:                typesRes,
+		Interfaces:           ifaceRes,
+		Comments:             commentsRes,
+		CyclomaticComplexity: cycloRes,
+		CognitiveComplexity:  cognitRes,
+		DurationMs:           time.Since(start).Milliseconds(),
+	})
+}
+
+func runComplexityTool(ctx context.Context, binary, projectPath, installHint string) ComplexityResult {
+	out, err := exec.CommandContext(ctx, binary, "-top", "5", "-avg", projectPath).Output()
+	if err != nil {
+		return ComplexityResult{
+			Error:       fmt.Sprintf("%s is not available on PATH (%v)", binary, err),
+			InstallHint: installHint,
+		}
+	}
+	parsed := gocyclo.MapToGoCycloModel(string(out))
+	if parsed.ComplexityDetails == nil {
+		parsed.ComplexityDetails = []*gocyclo.ComplexityDetail{}
+	}
+	return ComplexityResult{Data: parsed}
+}
+
+func (s *Server) handleGetVCS(w http.ResponseWriter, r *http.Request) {
+	proj := s.currentProjectSnapshot()
+	if proj == nil {
+		writeError(w, http.StatusBadRequest, "no Go project is loaded")
+		return
+	}
+
+	months := 6
+	if raw := strings.TrimSpace(r.URL.Query().Get("months")); raw != "" {
+		parsed, err := strconv.Atoi(raw)
+		if err != nil || parsed < 0 {
+			writeError(w, http.StatusBadRequest, "query parameter 'months' must be a non-negative integer")
+			return
+		}
+		months = parsed
+	}
+
+	var since time.Time
+	if months == 0 {
+		since = time.Date(1970, 1, 1, 0, 0, 0, 0, time.UTC)
+	} else {
+		since = time.Now().AddDate(0, -months, 0)
+	}
+
+	start := time.Now()
+	vcsInfo, err := git.LoadRepositoryTeamCohesion(proj.Path, &since)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, fmt.Sprintf("analyze Git repository: %v", err))
+		return
+	}
+	if vcsInfo == nil {
+		writeError(w, http.StatusInternalServerError, "empty VCS analysis result")
+		return
+	}
+	if vcsInfo.AuthorsInfo.AuthorDetails == nil {
+		vcsInfo.AuthorsInfo.AuthorDetails = []git.AuthorInfo{}
+	}
+	if vcsInfo.ModificationsInfo.PathModifications == nil {
+		vcsInfo.ModificationsInfo.PathModifications = []git.ModificationsInfo{}
+	}
+	if vcsInfo.ModificationsInfo.FileModifications == nil {
+		vcsInfo.ModificationsInfo.FileModifications = []git.ModificationsInfo{}
+	}
+
+	writeJSON(w, http.StatusOK, VCSResponse{
+		VCS:        vcsInfo,
+		Months:     months,
 		DurationMs: time.Since(start).Milliseconds(),
 	})
 }

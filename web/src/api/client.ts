@@ -4,7 +4,9 @@ import type {
   DependencyGraphResponse,
   DSMResponse,
   InstabilityResponse,
+  MetricsResponse,
   ProjectContextResponse,
+  VCSResponse,
 } from '../types/api'
 
 export class ApiError extends Error {
@@ -100,4 +102,16 @@ export function fetchCoupling(
   return requestJson<CouplingResponse>(`/api/coupling?${params.toString()}`, {
     signal,
   })
+}
+
+export function fetchMetrics(signal?: AbortSignal): Promise<MetricsResponse> {
+  return requestJson<MetricsResponse>('/api/metrics', { signal })
+}
+
+export function fetchVCS(
+  months: number,
+  signal?: AbortSignal,
+): Promise<VCSResponse> {
+  const params = new URLSearchParams({ months: String(months) })
+  return requestJson<VCSResponse>(`/api/vcs?${params.toString()}`, { signal })
 }

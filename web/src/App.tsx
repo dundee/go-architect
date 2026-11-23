@@ -17,7 +17,9 @@ import { CouplingView } from './components/CouplingView'
 import { DependencyGraphView } from './components/DependencyGraphView'
 import { DSMView } from './components/DSMView'
 import { InstabilityView } from './components/InstabilityView'
+import { MetricsView } from './components/MetricsView'
 import { ProjectSwitcherModal } from './components/ProjectSwitcherModal'
+import { VCSView } from './components/VCSView'
 import type { ProjectContextResponse } from './types/api'
 
 type ToolId = 'instability' | 'graph' | 'dsm' | 'coupling' | 'metrics' | 'vcs'
@@ -75,17 +77,19 @@ const TOOLS: Array<{
     id: 'metrics',
     path: '/metrics',
     label: 'Project Metrics',
-    description: 'Lines of code, types, interfaces, comments, and complexity.',
+    description:
+      'Inspect lines of code, declarations, interface sizes, comments, and cyclomatic/cognitive complexity.',
     icon: Activity,
-    enabled: false,
+    enabled: true,
   },
   {
     id: 'vcs',
     path: '/vcs',
     label: 'VCS Analysis',
-    description: 'Contributor activity and Bus Factor Risk across the Repository.',
+    description:
+      'Analyze contributor activity and Bus Factor Risk across the Repository.',
     icon: FolderGit2,
-    enabled: false,
+    enabled: true,
   },
 ]
 
@@ -97,6 +101,8 @@ function parseLocation(): RouteState {
   if (pathname === '/graph') return { tool: 'graph', dependency: null }
   if (pathname === '/dsm') return { tool: 'dsm', dependency: null }
   if (pathname === '/coupling') return { tool: 'coupling', dependency }
+  if (pathname === '/metrics') return { tool: 'metrics', dependency: null }
+  if (pathname === '/vcs') return { tool: 'vcs', dependency: null }
   return { tool: 'instability', dependency: null }
 }
 
@@ -354,6 +360,18 @@ export function App() {
                 initialDependency={route.dependency}
                 refreshSignal={refreshSignal}
                 onDependencyChange={syncCouplingQuery}
+              />
+            )}
+            {route.tool === 'metrics' && (
+              <MetricsView
+                project={context.project}
+                refreshSignal={refreshSignal}
+              />
+            )}
+            {route.tool === 'vcs' && (
+              <VCSView
+                project={context.project}
+                refreshSignal={refreshSignal}
               />
             )}
           </div>
