@@ -11,16 +11,14 @@ Go-Architect is a Software Architecture Analysis Tool for Go Projects. Run it fr
 - **Dependency Graph**: Directed graph across Package Layers (`internal`, `organization`, `external`, `standard`) with neighbor inspection.
 - **Dependency Structure Matrix (DSM)**: Package-to-package and 4×4 layer-aggregated matrices with weighted/boolean modes and mutual Dependency Cycle detection.
 - **Dependency Coupling**: Inspect how deeply your Project depends on any imported package down to highlighted source lines.
-- **Project Metrics**: Lines of code, declaration/visibility counts, interface sizing, comment ratios, and optional Cyclomatic/Cognitive complexity.
+- **Project Metrics**: Lines of code, declaration/visibility counts, interface sizing, comment ratios, and built-in Cyclomatic/Cognitive complexity.
+- **Trends**: Historical metric trends computed from Git commits/tags with local per-commit caching.
 - **VCS Analysis**: Contributor activity and Bus Factor Risk across the Repository over configurable time windows.
 
 ## Installation
 
 ### Requirements
 - Go 1.24+
-- Optional (for complexity metrics):
-  - `gocyclo`: `go install github.com/fzipp/gocyclo/cmd/gocyclo@latest`
-  - `gocognit`: `go install github.com/uudashr/gocognit/cmd/gocognit@latest`
 
 ### Install with Go
 ```bash

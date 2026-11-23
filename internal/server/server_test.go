@@ -120,6 +120,10 @@ func TestServerEndpoints(t *testing.T) {
 		require.NotNil(t, resp.Types)
 		require.NotNil(t, resp.Interfaces)
 		require.NotNil(t, resp.Comments)
+		require.NotNil(t, resp.CyclomaticComplexity.Data)
+		require.NotEmpty(t, resp.CyclomaticComplexity.Data.ComplexityDetails)
+		require.NotNil(t, resp.CognitiveComplexity.Data)
+		require.NotEmpty(t, resp.CognitiveComplexity.Data.ComplexityDetails)
 	})
 
 	t.Run("GET /api/vcs", func(t *testing.T) {

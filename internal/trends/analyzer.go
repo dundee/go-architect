@@ -15,7 +15,7 @@ import (
 	"github.com/go-architect/go-architect-lib/metrics/loc"
 	"github.com/go-architect/go-architect-lib/metrics/types"
 	"github.com/go-architect/go-architect-lib/project"
-	"github.com/go-architect/go-architect/backend/gocyclo"
+	"github.com/go-architect/go-architect/internal/complexity"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -274,7 +274,7 @@ func measureDirectory(ctx context.Context, proj *project.ProjectInfo, includeCom
 		cognitAvg   *float64
 	)
 
-	g, gCtx := errgroup.WithContext(ctx)
+	g, _ := errgroup.WithContext(ctx)
 
 	g.Go(func() error {
 		res, err := loc.CountLoc(proj)
@@ -323,11 +323,14 @@ func measureDirectory(ctx context.Context, proj *project.ProjectInfo, includeCom
 
 	if includeComplexity {
 		g.Go(func() error {
-			cycloAvg = measureComplexityAvg(gCtx, "gocyclo", proj.Path)
-			return nil
-		})
-		g.Go(func() error {
-			cognitAvg = measureComplexityAvg(gCtx, "gocognit", proj.Path)
+			compReport, err := complexity.Calculate(proj.Path, proj.Package, 5)
+			if err != nil {
+				return nil
+			}
+			cAvg := compReport.Cyclomatic.AverageComplexity
+			gAvg := compReport.Cognitive.AverageComplexity
+			cycloAvg = &cAvg
+			cognitAvg = &gAvg
 			return nil
 		})
 	}
@@ -371,14 +374,4 @@ func measureDirectory(ctx context.Context, proj *project.ProjectInfo, includeCom
 		CyclomaticComplexityAvg: cycloAvg,
 		CognitiveComplexityAvg:  cognitAvg,
 	}, nil
-}
-
-func measureComplexityAvg(ctx context.Context, binary, path string) *float64 {
-	out, err := exec.CommandContext(ctx, binary, "-top", "5", "-avg", path).Output()
-	if err != nil {
-		return nil
-	}
-	parsed := gocyclo.MapToGoCycloModel(string(out))
-	avg := parsed.AverageComplexity
-	return &avg
 }

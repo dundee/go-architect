@@ -224,7 +224,7 @@ export function TrendsView({ project, refreshSignal }: TrendsViewProps) {
         <div className="flex flex-wrap items-center gap-3">
           <label
             className="inline-flex cursor-pointer items-center gap-2 text-xs font-medium text-slate-700"
-            title="Opt-in: invokes gocyclo and gocognit on uncached commits"
+            title="Opt-in: computes cyclomatic and cognitive complexity for uncached commits"
           >
             <input
               type="checkbox"

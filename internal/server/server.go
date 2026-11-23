@@ -1,14 +1,12 @@
 package server
 
 import (
-	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"io/fs"
 	"net/http"
-	"os/exec"
 	"path"
 	"path/filepath"
 	"strconv"
@@ -27,7 +25,7 @@ import (
 	"github.com/go-architect/go-architect-lib/project"
 	"github.com/go-architect/go-architect-lib/repository"
 	"github.com/go-architect/go-architect/backend/git"
-	"github.com/go-architect/go-architect/backend/gocyclo"
+	"github.com/go-architect/go-architect/internal/complexity"
 	"github.com/go-architect/go-architect/internal/trends"
 	"golang.org/x/sync/errgroup"
 )
@@ -67,9 +65,9 @@ type CouplingResponse struct {
 }
 
 type ComplexityResult struct {
-	Data        *gocyclo.GoCycloOutput `json:"data"`
-	Error       string                 `json:"error,omitempty"`
-	InstallHint string                 `json:"install_hint,omitempty"`
+	Data        *complexity.Output `json:"data"`
+	Error       string             `json:"error,omitempty"`
+	InstallHint string             `json:"install_hint,omitempty"`
 }
 
 type MetricsResponse struct {
@@ -383,7 +381,7 @@ func (s *Server) handleGetMetrics(w http.ResponseWriter, r *http.Request) {
 		cognitRes   ComplexityResult
 	)
 
-	g, ctx := errgroup.WithContext(r.Context())
+	g, _ := errgroup.WithContext(r.Context())
 
 	g.Go(func() error {
 		res, err := loc.CountLoc(proj)
@@ -422,22 +420,14 @@ func (s *Server) handleGetMetrics(w http.ResponseWriter, r *http.Request) {
 	})
 
 	g.Go(func() error {
-		cycloRes = runComplexityTool(
-			ctx,
-			"gocyclo",
-			proj.Path,
-			"go install github.com/fzipp/gocyclo/cmd/gocyclo@latest",
-		)
-		return nil
-	})
-
-	g.Go(func() error {
-		cognitRes = runComplexityTool(
-			ctx,
-			"gocognit",
-			proj.Path,
-			"go install github.com/uudashr/gocognit/cmd/gocognit@latest",
-		)
+		compReport, err := complexity.Calculate(proj.Path, proj.Package, 5)
+		if err != nil {
+			cycloRes = ComplexityResult{Error: err.Error()}
+			cognitRes = ComplexityResult{Error: err.Error()}
+			return nil
+		}
+		cycloRes = ComplexityResult{Data: &compReport.Cyclomatic}
+		cognitRes = ComplexityResult{Data: &compReport.Cognitive}
 		return nil
 	})
 
@@ -455,21 +445,6 @@ func (s *Server) handleGetMetrics(w http.ResponseWriter, r *http.Request) {
 		CognitiveComplexity:  cognitRes,
 		DurationMs:           time.Since(start).Milliseconds(),
 	})
-}
-
-func runComplexityTool(ctx context.Context, binary, projectPath, installHint string) ComplexityResult {
-	out, err := exec.CommandContext(ctx, binary, "-top", "5", "-avg", projectPath).Output()
-	if err != nil {
-		return ComplexityResult{
-			Error:       fmt.Sprintf("%s is not available on PATH (%v)", binary, err),
-			InstallHint: installHint,
-		}
-	}
-	parsed := gocyclo.MapToGoCycloModel(string(out))
-	if parsed.ComplexityDetails == nil {
-		parsed.ComplexityDetails = []*gocyclo.ComplexityDetail{}
-	}
-	return ComplexityResult{Data: parsed}
 }
 
 func (s *Server) handleGetVCS(w http.ResponseWriter, r *http.Request) {

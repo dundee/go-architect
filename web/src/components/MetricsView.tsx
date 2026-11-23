@@ -316,12 +316,12 @@ export function MetricsView({ project, refreshSignal }: MetricsViewProps) {
       {/* Cyclomatic & Cognitive Complexity */}
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
         <ComplexityCard
-          title="Cyclomatic Complexity (gocyclo)"
+          title="Cyclomatic Complexity"
           result={data.cyclomatic_complexity}
           mainPkg={mainPkg}
         />
         <ComplexityCard
-          title="Cognitive Complexity (gocognit)"
+          title="Cognitive Complexity"
           result={data.cognitive_complexity}
           mainPkg={mainPkg}
         />
