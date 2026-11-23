@@ -1,8 +1,10 @@
 package git
 
 import (
-	"github.com/go-git/go-git/v5/plumbing/object"
+	stdlog "log"
 	"sort"
+
+	"github.com/go-git/go-git/v5/plumbing/object"
 )
 
 func analyzeAuthors(authors map[string]AuthorInfo) AuthorsInfo {
@@ -68,11 +70,15 @@ func analyzeLog(log object.CommitIter) *LogDetails {
 		FileModificationsInfo: make(map[string]ModificationsInfo),
 	}
 
-	log.ForEach(func(c *object.Commit) error {
+	err := log.ForEach(func(c *object.Commit) error {
 		analyzeCommit(c, logDetails)
 
 		return nil
 	})
+	if err != nil {
+		stdlog.Printf("Error analyzing log: %v", err)
+		return nil
+	}
 
 	return logDetails
 }
