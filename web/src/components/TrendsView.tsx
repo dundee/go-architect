@@ -593,7 +593,8 @@ export function TrendsView({ project, refreshSignal }: TrendsViewProps) {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
-                  {points.map((p, idx) => {
+                  {[...points].reverse().map((p, revIdx) => {
+                    const idx = points.length - 1 - revIdx
                     const isHovered = hoveredIdx === idx
                     return (
                       <tr
