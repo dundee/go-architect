@@ -1,33 +1,62 @@
 # Go-Architect
 <div align="center">
-<img src="./.github/logo.png" width="300" alt="cantor" align=center />
+<img src="./.github/logo.png" width="300" alt="Go-Architect" align=center />
 </div>
 
 ---
-Go-Architect is a Software Architecture Analysis Tool for projects written in Go language. 
-You can use this tool to analyze the design of your artifacts in order to ease decisions related to refactoring your code, 
-fixing issues or evolving the artifact's features.
-
-<img src="./.github/screenshots-01.png" alt="Go-Architect" title="Go-Architect" />
+Go-Architect is a Software Architecture Analysis Tool for Go Projects. Run it from the command line against any local Go module to explore architectural metrics and visualizations in your browser.
 
 ## Features
-- Analyze projects in Go language, collecting metrics and interpreting architectural information.
-- Graphic visualization to facilitate the understanding of architectural decisions.
-- Stores historical data to compare the evolution of your architecture.
-
-<img src="./.github/screenshots-02.png" alt="Go-Architect" title="Go-Architect" />
+- **Abstractness & Instability Chart**: Interactive scatter plot with Main Sequence, Zone of Pain, Zone of Uselessness, overlapping package grouping, tooltips, and synced table filtering.
+- **Dependency Graph**: Directed graph across Package Layers (`internal`, `organization`, `external`, `standard`) with neighbor inspection.
+- **Dependency Structure Matrix (DSM)**: Package-to-package and 4×4 layer-aggregated matrices with weighted/boolean modes and mutual Dependency Cycle detection.
+- **Dependency Coupling**: Inspect how deeply your Project depends on any imported package down to highlighted source lines.
+- **Project Metrics**: Lines of code, declaration/visibility counts, interface sizing, comment ratios, and optional Cyclomatic/Cognitive complexity.
+- **VCS Analysis**: Contributor activity and Bus Factor Risk across the Repository over configurable time windows.
 
 ## Installation
 
 ### Requirements
-- Go v1.19 (https://go.dev/doc/install)
-- GoCyclo (https://pkg.go.dev/github.com/fzipp/gocyclo) for Cyclomatic complexity metrics
-- GoCognit (https://pkg.go.dev/github.com/uudashr/gocognit) for Cognitive complexity metrics
+- Go 1.24+
+- Optional (for complexity metrics):
+  - `gocyclo`: `go install github.com/fzipp/gocyclo/cmd/gocyclo@latest`
+  - `gocognit`: `go install github.com/uudashr/gocognit/cmd/gocognit@latest`
 
-### Installation Process
-At the moment, installing Go-Architect can only be done manually, by executing the following commands:
+### Install with Go
+```bash
+go install github.com/go-architect/go-architect/cmd/web@latest
+```
+
+### Build from Source
 ```bash
 git clone https://github.com/go-architect/go-architect
 cd go-architect
-make install
+make build
+```
+
+## Usage
+```bash
+# Analyze the current directory and open the web UI
+go run ./cmd/web .
+
+# Specify organization package prefixes and custom listen address
+go run ./cmd/web -path /path/to/repo -org github.com/my-org/ -addr 127.0.0.1:8080
+
+# Start without auto-opening the browser
+go run ./cmd/web -open=false /path/to/repo
+```
+
+## Development
+```bash
+# 1. Start the Go API server
+go run ./cmd/web -open=false -path .
+
+# 2. Start Vite dev server (proxies /api to 127.0.0.1:8080)
+cd web && npm install && npm run dev
+
+# 3. Rebuild embedded frontend assets
+make web-build
+
+# 4. Run Go tests
+make test
 ```

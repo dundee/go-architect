@@ -4,6 +4,7 @@
 *.dll
 *.so
 *.dylib
+go-architect
 
 # Test binary, built with `go test -c`
 *.test
@@ -11,16 +12,6 @@
 # Output of the go coverage tool, specifically when used with LiteIDE
 *.out
 
-# Dependency directories (remove the comment below to include it)
-# vendor/
-
 .idea/
-build/bin
-frontend/dist/assets/*
-frontend/dist/index.html
-frontend/node_modules
-frontend/package.json.md5
 web/node_modules
-sample_db
-
 .DS_Store
