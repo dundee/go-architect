@@ -7,6 +7,7 @@ import type {
   MetricsResponse,
   ProjectContextResponse,
   SamplingMode,
+  TrendsProgressEvent,
   TrendsReport,
   VCSResponse,
 } from '../types/api'
@@ -136,4 +137,84 @@ export function fetchTrends(
   return requestJson<TrendsReport>(`/api/trends?${params.toString()}`, {
     signal,
   })
+}
+
+export function subscribeTrendsStream(
+  options: {
+    mode: SamplingMode
+    months: number
+    limit?: number
+    includeComplexity?: boolean
+  },
+  handlers: {
+    onStart?: (ev: TrendsProgressEvent) => void
+    onProgress?: (ev: TrendsProgressEvent) => void
+    onComplete?: (report: TrendsReport) => void
+    onError?: (message: string) => void
+  },
+): () => void {
+  const params = new URLSearchParams({
+    mode: options.mode,
+    months: String(options.months),
+    limit: String(options.limit ?? 12),
+    include_complexity: String(Boolean(options.includeComplexity)),
+  })
+
+  const es = new EventSource(`/api/trends/stream?${params.toString()}`)
+  let settled = false
+
+  es.addEventListener('start', (e) => {
+    try {
+      const ev = JSON.parse((e as MessageEvent).data) as TrendsProgressEvent
+      handlers.onStart?.(ev)
+    } catch {
+      // ignore malformed event
+    }
+  })
+
+  es.addEventListener('progress', (e) => {
+    try {
+      const ev = JSON.parse((e as MessageEvent).data) as TrendsProgressEvent
+      handlers.onProgress?.(ev)
+    } catch {
+      // ignore malformed event
+    }
+  })
+
+  es.addEventListener('complete', (e) => {
+    settled = true
+    try {
+      const report = JSON.parse((e as MessageEvent).data) as TrendsReport
+      handlers.onComplete?.(report)
+    } catch {
+      handlers.onError?.('Invalid completion payload from server')
+    } finally {
+      es.close()
+    }
+  })
+
+  es.addEventListener('failed', (e) => {
+    settled = true
+    try {
+      const payload = JSON.parse((e as MessageEvent).data) as ApiErrorResponse
+      handlers.onError?.(payload.error || 'Historical trend analysis failed')
+    } catch {
+      handlers.onError?.('Historical trend analysis failed')
+    } finally {
+      es.close()
+    }
+  })
+
+  es.onerror = () => {
+    if (!settled) {
+      settled = true
+      handlers.onError?.('Lost connection to trends progress stream')
+      es.close()
+    }
+  }
+
+  return () => {
+    settled = true
+    es.close()
+  }
 }

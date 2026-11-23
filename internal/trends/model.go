@@ -48,3 +48,16 @@ type TrendsReport struct {
 	SkippedReasons    []string         `json:"skipped_reasons,omitempty"`
 	DurationMs        int64            `json:"duration_ms"`
 }
+
+type ProgressEvent struct {
+	Type      string          `json:"type"` // "start" | "progress"
+	Index     int             `json:"index,omitempty"`
+	Total     int             `json:"total"`
+	CommitSHA string          `json:"commit_sha,omitempty"`
+	ShortSHA  string          `json:"short_sha,omitempty"`
+	Message   string          `json:"message,omitempty"`
+	Tag       string          `json:"tag,omitempty"`
+	Status    string          `json:"status,omitempty"` // "cached" | "computing" | "done" | "skipped"
+	Reason    string          `json:"reason,omitempty"`
+	Snapshot  *CommitSnapshot `json:"snapshot,omitempty"`
+}

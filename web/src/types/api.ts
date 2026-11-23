@@ -261,6 +261,19 @@ export interface TrendsReport {
   duration_ms: number
 }
 
+export interface TrendsProgressEvent {
+  type: 'start' | 'progress'
+  index?: number
+  total: number
+  commit_sha?: string
+  short_sha?: string
+  message?: string
+  tag?: string
+  status?: 'cached' | 'computing' | 'done' | 'skipped'
+  reason?: string
+  snapshot?: CommitSnapshot
+}
+
 export interface ApiErrorResponse {
   error: string
 }

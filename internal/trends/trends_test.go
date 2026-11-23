@@ -75,13 +75,19 @@ func TestTrendsAnalyzeAndCache(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
-	// First run: buckets mode, all time
-	report1, err := Analyze(ctx, proj, cache, Options{
+	// First run with progress callback: buckets mode, all time
+	var events []ProgressEvent
+	report1, err := AnalyzeWithProgress(ctx, proj, cache, Options{
 		Mode:      ModeBuckets,
 		Months:    0,
 		MaxPoints: 12,
+	}, func(ev ProgressEvent) {
+		events = append(events, ev)
 	})
 	require.NoError(t, err)
+	require.NotEmpty(t, events)
+	require.Equal(t, "start", events[0].Type)
+	require.Equal(t, 3, events[0].Total)
 	require.Equal(t, 1, report1.SkippedCount)
 	require.Len(t, report1.Points, 2)
 	require.Equal(t, 2, report1.ComputedCount)

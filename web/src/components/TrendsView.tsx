@@ -3,6 +3,7 @@ import {
   AlertCircle,
   AlertTriangle,
   Calendar,
+  CheckCircle2,
   Database,
   GitCommitHorizontal,
   Loader2,
@@ -10,11 +11,12 @@ import {
   Tag,
   TrendingUp,
 } from 'lucide-react'
-import { fetchTrends } from '../api/client'
+import { subscribeTrendsStream } from '../api/client'
 import type {
   CommitSnapshot,
   ProjectInfo,
   SamplingMode,
+  TrendsProgressEvent,
   TrendsReport,
 } from '../types/api'
 
@@ -48,56 +50,114 @@ function formatShortDate(iso: string): string {
   })
 }
 
+interface ProgressState {
+  total: number
+  completed: number
+  cachedCount: number
+  computedCount: number
+  skippedCount: number
+  current: TrendsProgressEvent | null
+}
+
 export function TrendsView({ project, refreshSignal }: TrendsViewProps) {
   const [mode, setMode] = useState<SamplingMode>('buckets')
   const [months, setMonths] = useState(12)
   const [includeComplexity, setIncludeComplexity] = useState(false)
 
   const [report, setReport] = useState<TrendsReport | null>(null)
+  const [livePoints, setLivePoints] = useState<CommitSnapshot[]>([])
+  const [progress, setProgress] = useState<ProgressState | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [hoveredIdx, setHoveredIdx] = useState<number | null>(null)
+  const [retryToken, setRetryToken] = useState(0)
 
-  const loadData = useCallback(
-    (signal?: AbortSignal) => {
-      setLoading(true)
-      setError(null)
-      fetchTrends(
-        {
-          mode,
-          months,
-          limit: 12,
-          includeComplexity,
+  const startStream = useCallback(() => {
+    setLoading(true)
+    setError(null)
+    setLivePoints([])
+    setProgress(null)
+    setHoveredIdx(null)
+
+    return subscribeTrendsStream(
+      {
+        mode,
+        months,
+        limit: 12,
+        includeComplexity,
+      },
+      {
+        onStart: (ev) => {
+          setProgress({
+            total: ev.total,
+            completed: 0,
+            cachedCount: 0,
+            computedCount: 0,
+            skippedCount: 0,
+            current: null,
+          })
         },
-        signal,
-      )
-        .then((res) => {
-          if (signal?.aborted) return
-          setReport(res)
-          setHoveredIdx(null)
-        })
-        .catch((err: unknown) => {
-          if (signal?.aborted) return
-          setError(
-            err instanceof Error
-              ? err.message
-              : 'Failed to load historical trends',
-          )
-        })
-        .finally(() => {
-          if (!signal?.aborted) setLoading(false)
-        })
-    },
-    [mode, months, includeComplexity],
-  )
+        onProgress: (ev) => {
+          setProgress((prev) => {
+            const base: ProgressState = prev ?? {
+              total: ev.total,
+              completed: 0,
+              cachedCount: 0,
+              computedCount: 0,
+              skippedCount: 0,
+              current: null,
+            }
+            if (ev.status === 'computing') {
+              return { ...base, total: ev.total, current: ev }
+            }
+            return {
+              total: ev.total,
+              completed: base.completed + 1,
+              cachedCount:
+                base.cachedCount + (ev.status === 'cached' ? 1 : 0),
+              computedCount:
+                base.computedCount + (ev.status === 'done' ? 1 : 0),
+              skippedCount:
+                base.skippedCount + (ev.status === 'skipped' ? 1 : 0),
+              current: ev,
+            }
+          })
+
+          const snap = ev.snapshot
+          if (snap && (ev.status === 'cached' || ev.status === 'done')) {
+            setLivePoints((prev) => {
+              if (prev.some((p) => p.commit_sha === snap.commit_sha)) {
+                return prev
+              }
+              return [...prev, snap]
+            })
+          }
+        },
+        onComplete: (finalReport) => {
+          setReport(finalReport)
+          setLivePoints(finalReport.points)
+          setLoading(false)
+        },
+        onError: (msg) => {
+          setError(msg)
+          setLoading(false)
+        },
+      },
+    )
+  }, [mode, months, includeComplexity])
 
   useEffect(() => {
-    const controller = new AbortController()
-    loadData(controller.signal)
-    return () => controller.abort()
-  }, [project.path, project.organization_packages, refreshSignal, loadData])
+    const cleanup = startStream()
+    return cleanup
+  }, [
+    project.path,
+    project.organization_packages,
+    refreshSignal,
+    retryToken,
+    startStream,
+  ])
 
-  const points = report?.points ?? []
+  const points = loading ? livePoints : (report?.points ?? livePoints)
   const first = points.length > 0 ? points[0] : null
   const latest = points.length > 0 ? points[points.length - 1] : null
 
@@ -185,26 +245,96 @@ export function TrendsView({ project, refreshSignal }: TrendsViewProps) {
         </div>
       </div>
 
-      {/* Loading */}
-      {loading && !report && (
-        <div className="flex flex-col gap-4">
-          <div className="flex items-center gap-2.5 rounded-xl border border-indigo-200 bg-indigo-50/70 px-4 py-3 text-sm font-medium text-indigo-900">
-            <Loader2 className="h-4 w-4 animate-spin text-indigo-600" />
-            Sampling Git history and computing Metric Snapshots... (subsequent
-            runs load from cache)
-          </div>
-          <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-            <div className="h-64 animate-pulse rounded-xl border border-slate-200 bg-white" />
-            <div className="h-64 animate-pulse rounded-xl border border-slate-200 bg-white" />
-          </div>
-        </div>
-      )}
+      {/* Live Progress Card */}
+      {loading && (
+        <div className="flex flex-col gap-2.5 rounded-xl border border-indigo-200 bg-indigo-50/70 px-4 py-3 text-xs text-indigo-950">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div className="flex items-center gap-2 font-medium">
+              <Loader2 className="h-4 w-4 animate-spin text-indigo-600" />
+              {progress ? (
+                <span>
+                  Processing commits: <strong>{progress.completed}</strong> of{' '}
+                  <strong>{progress.total}</strong> done
+                  {progress.total > 0 && (
+                    <span className="ml-1.5 text-indigo-700">
+                      (
+                      {Math.round(
+                        (progress.completed / progress.total) * 100,
+                      )}
+                      %)
+                    </span>
+                  )}
+                </span>
+              ) : (
+                <span>Sampling Git commit history...</span>
+              )}
+            </div>
 
-      {/* Refreshing Banner */}
-      {loading && report && (
-        <div className="flex items-center gap-2 rounded-lg border border-indigo-200 bg-indigo-50 px-3.5 py-2 text-xs font-medium text-indigo-800">
-          <Loader2 className="h-4 w-4 animate-spin text-indigo-600" />
-          Updating Trend Series...
+            {progress && (
+              <div className="flex items-center gap-3 font-mono text-[11px] text-indigo-800">
+                <span>{progress.cachedCount} cached</span>
+                <span>{progress.computedCount} computed</span>
+                {progress.skippedCount > 0 && (
+                  <span className="text-amber-700">
+                    {progress.skippedCount} skipped
+                  </span>
+                )}
+              </div>
+            )}
+          </div>
+
+          {progress && progress.total > 0 && (
+            <div className="h-2 w-full overflow-hidden rounded-full bg-indigo-100">
+              <div
+                className="h-full rounded-full bg-indigo-600 transition-all duration-200"
+                style={{
+                  width: `${Math.min(100, (progress.completed / progress.total) * 100)}%`,
+                }}
+              />
+            </div>
+          )}
+
+          {progress?.current && (
+            <div className="flex flex-wrap items-center justify-between gap-2 text-[11px] text-indigo-900">
+              <div className="flex min-w-0 items-center gap-2">
+                {progress.current.status === 'computing' ? (
+                  <span className="rounded bg-indigo-600 px-1.5 py-0.5 text-[10px] font-semibold text-white">
+                    Analyzing
+                  </span>
+                ) : progress.current.status === 'cached' ? (
+                  <span className="inline-flex items-center gap-1 rounded bg-slate-200 px-1.5 py-0.5 text-[10px] font-semibold text-slate-700">
+                    <CheckCircle2 className="h-3 w-3" />
+                    Cached
+                  </span>
+                ) : progress.current.status === 'skipped' ? (
+                  <span className="rounded bg-amber-200 px-1.5 py-0.5 text-[10px] font-semibold text-amber-900">
+                    Skipped
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center gap-1 rounded bg-emerald-100 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-800">
+                    <CheckCircle2 className="h-3 w-3" />
+                    Done
+                  </span>
+                )}
+                <span className="font-mono font-semibold">
+                  {progress.current.short_sha}
+                </span>
+                {progress.current.tag && (
+                  <span className="rounded bg-white/80 px-1.5 py-0.5 font-mono text-[10px] text-indigo-700">
+                    {progress.current.tag}
+                  </span>
+                )}
+                <span className="truncate text-indigo-800">
+                  {progress.current.message}
+                </span>
+              </div>
+              {progress.current.index && (
+                <span className="shrink-0 font-mono text-indigo-700">
+                  #{progress.current.index}/{progress.total}
+                </span>
+              )}
+            </div>
+          )}
         </div>
       )}
 
@@ -220,7 +350,7 @@ export function TrendsView({ project, refreshSignal }: TrendsViewProps) {
               <p className="mt-1 text-sm text-rose-700">{error}</p>
               <button
                 type="button"
-                onClick={() => loadData()}
+                onClick={() => setRetryToken((t) => t + 1)}
                 className="mt-4 inline-flex items-center gap-1.5 rounded-lg bg-rose-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-rose-700"
               >
                 <RefreshCw className="h-3.5 w-3.5" />
@@ -232,7 +362,7 @@ export function TrendsView({ project, refreshSignal }: TrendsViewProps) {
       )}
 
       {/* Skipped Commits Notice */}
-      {report && report.skipped_count > 0 && !error && (
+      {!loading && report && report.skipped_count > 0 && !error && (
         <div className="rounded-xl border border-amber-200 bg-amber-50/80 px-4 py-3 text-xs text-amber-900">
           <div className="flex items-start gap-2">
             <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" />
@@ -253,8 +383,8 @@ export function TrendsView({ project, refreshSignal }: TrendsViewProps) {
         </div>
       )}
 
-      {/* Loaded Content */}
-      {report && !error && points.length > 0 && first && latest && (
+      {/* Loaded or Streaming Content */}
+      {!error && points.length > 0 && first && latest && (
         <>
           {/* Delta KPI Strip */}
           <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">

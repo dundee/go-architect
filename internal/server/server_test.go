@@ -151,6 +151,15 @@ func TestServerEndpoints(t *testing.T) {
 		srv.Handler().ServeHTTP(rec, req)
 		require.Equal(t, http.StatusOK, rec.Code)
 		require.Contains(t, rec.Body.String(), `"points"`)
+
+		reqStream := httptest.NewRequest(http.MethodGet, "/api/trends/stream?mode=buckets&months=12&limit=3", nil)
+		recStream := httptest.NewRecorder()
+		srv.Handler().ServeHTTP(recStream, reqStream)
+		require.Equal(t, http.StatusOK, recStream.Code)
+		require.Contains(t, recStream.Header().Get("Content-Type"), "text/event-stream")
+		require.Contains(t, recStream.Body.String(), "event: start")
+		require.Contains(t, recStream.Body.String(), "event: progress")
+		require.Contains(t, recStream.Body.String(), "event: complete")
 	})
 
 	t.Run("POST /api/project rejects invalid path", func(t *testing.T) {

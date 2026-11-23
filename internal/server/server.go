@@ -208,6 +208,7 @@ func (s *Server) registerRoutes() {
 	s.mux.HandleFunc("GET /api/metrics", s.handleGetMetrics)
 	s.mux.HandleFunc("GET /api/vcs", s.handleGetVCS)
 	s.mux.HandleFunc("GET /api/trends", s.handleGetTrends)
+	s.mux.HandleFunc("GET /api/trends/stream", s.handleGetTrendsStream)
 	s.mux.HandleFunc("/", s.handleSPA)
 }
 
@@ -522,21 +523,14 @@ func (s *Server) handleGetVCS(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-func (s *Server) handleGetTrends(w http.ResponseWriter, r *http.Request) {
-	proj := s.currentProjectSnapshot()
-	if proj == nil {
-		writeError(w, http.StatusBadRequest, "no Go project is loaded")
-		return
-	}
-
+func parseTrendsOptions(r *http.Request) (trends.Options, error) {
 	mode := trends.ModeBuckets
 	if rawMode := strings.TrimSpace(r.URL.Query().Get("mode")); rawMode != "" {
 		switch trends.SamplingMode(rawMode) {
 		case trends.ModeBuckets, trends.ModeTags:
 			mode = trends.SamplingMode(rawMode)
 		default:
-			writeError(w, http.StatusBadRequest, "query parameter 'mode' must be 'buckets' or 'tags'")
-			return
+			return trends.Options{}, fmt.Errorf("query parameter 'mode' must be 'buckets' or 'tags'")
 		}
 	}
 
@@ -544,8 +538,7 @@ func (s *Server) handleGetTrends(w http.ResponseWriter, r *http.Request) {
 	if rawMonths := strings.TrimSpace(r.URL.Query().Get("months")); rawMonths != "" {
 		parsed, err := strconv.Atoi(rawMonths)
 		if err != nil || parsed < 0 {
-			writeError(w, http.StatusBadRequest, "query parameter 'months' must be a non-negative integer")
-			return
+			return trends.Options{}, fmt.Errorf("query parameter 'months' must be a non-negative integer")
 		}
 		months = parsed
 	}
@@ -554,26 +547,88 @@ func (s *Server) handleGetTrends(w http.ResponseWriter, r *http.Request) {
 	if rawLimit := strings.TrimSpace(r.URL.Query().Get("limit")); rawLimit != "" {
 		parsed, err := strconv.Atoi(rawLimit)
 		if err != nil || parsed < 2 || parsed > 30 {
-			writeError(w, http.StatusBadRequest, "query parameter 'limit' must be between 2 and 30")
-			return
+			return trends.Options{}, fmt.Errorf("query parameter 'limit' must be between 2 and 30")
 		}
 		maxPoints = parsed
 	}
 
 	includeComplexity := strings.EqualFold(strings.TrimSpace(r.URL.Query().Get("include_complexity")), "true")
 
-	report, err := trends.Analyze(r.Context(), proj, s.trendsCache, trends.Options{
+	return trends.Options{
 		Mode:              mode,
 		Months:            months,
 		MaxPoints:         maxPoints,
 		IncludeComplexity: includeComplexity,
-	})
+	}, nil
+}
+
+func (s *Server) handleGetTrends(w http.ResponseWriter, r *http.Request) {
+	proj := s.currentProjectSnapshot()
+	if proj == nil {
+		writeError(w, http.StatusBadRequest, "no Go project is loaded")
+		return
+	}
+
+	opts, err := parseTrendsOptions(r)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	report, err := trends.Analyze(r.Context(), proj, s.trendsCache, opts)
 	if err != nil {
 		writeError(w, http.StatusBadRequest, fmt.Sprintf("analyze historical trends: %v", err))
 		return
 	}
 
 	writeJSON(w, http.StatusOK, report)
+}
+
+func (s *Server) handleGetTrendsStream(w http.ResponseWriter, r *http.Request) {
+	proj := s.currentProjectSnapshot()
+	if proj == nil {
+		writeError(w, http.StatusBadRequest, "no Go project is loaded")
+		return
+	}
+
+	opts, err := parseTrendsOptions(r)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	flusher, ok := w.(http.Flusher)
+	if !ok {
+		writeError(w, http.StatusInternalServerError, "streaming is not supported")
+		return
+	}
+
+	w.Header().Set("Content-Type", "text/event-stream")
+	w.Header().Set("Cache-Control", "no-cache")
+	w.Header().Set("Connection", "keep-alive")
+	w.WriteHeader(http.StatusOK)
+	flusher.Flush()
+
+	sendEvent := func(name string, payload any) {
+		data, err := json.Marshal(payload)
+		if err != nil {
+			return
+		}
+		_, _ = fmt.Fprintf(w, "event: %s\ndata: %s\n\n", name, data)
+		flusher.Flush()
+	}
+
+	report, err := trends.AnalyzeWithProgress(r.Context(), proj, s.trendsCache, opts, func(ev trends.ProgressEvent) {
+		sendEvent(ev.Type, ev)
+	})
+	if err != nil {
+		if r.Context().Err() == nil {
+			sendEvent("failed", ErrorResponse{Error: fmt.Sprintf("analyze historical trends: %v", err)})
+		}
+		return
+	}
+
+	sendEvent("complete", report)
 }
 
 func (s *Server) handleSPA(w http.ResponseWriter, r *http.Request) {

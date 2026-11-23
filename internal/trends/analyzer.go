@@ -27,6 +27,16 @@ type Options struct {
 }
 
 func Analyze(ctx context.Context, proj *project.ProjectInfo, cache *Cache, opts Options) (*TrendsReport, error) {
+	return AnalyzeWithProgress(ctx, proj, cache, opts, nil)
+}
+
+func AnalyzeWithProgress(
+	ctx context.Context,
+	proj *project.ProjectInfo,
+	cache *Cache,
+	opts Options,
+	onProgress func(ProgressEvent),
+) (*TrendsReport, error) {
 	if proj == nil {
 		return nil, fmt.Errorf("project is required")
 	}
@@ -35,6 +45,12 @@ func Analyze(ctx context.Context, proj *project.ProjectInfo, cache *Cache, opts 
 	}
 	if opts.MaxPoints <= 0 {
 		opts.MaxPoints = 12
+	}
+
+	emit := func(ev ProgressEvent) {
+		if onProgress != nil {
+			onProgress(ev)
+		}
 	}
 
 	start := time.Now()
@@ -48,28 +64,56 @@ func Analyze(ctx context.Context, proj *project.ProjectInfo, cache *Cache, opts 
 		return nil, err
 	}
 
+	total := len(commits)
+	emit(ProgressEvent{
+		Type:  "start",
+		Total: total,
+	})
+
 	projectKey := proj.Package + "::" + relPath
 	report := &TrendsReport{
 		Mode:              opts.Mode,
 		Months:            opts.Months,
 		IncludeComplexity: opts.IncludeComplexity,
-		Points:            make([]CommitSnapshot, 0, len(commits)),
+		Points:            make([]CommitSnapshot, 0, total),
 	}
 
-	for _, c := range commits {
+	for idx, c := range commits {
 		if ctx.Err() != nil {
 			return nil, ctx.Err()
 		}
 
+		step := idx + 1
 		if cachedSnap, ok := cache.Get(projectKey, c.SHA); ok {
 			// If complexity is requested and missing from cached snapshot, upgrade it.
 			if opts.IncludeComplexity && (cachedSnap.Metrics.CyclomaticComplexityAvg == nil || cachedSnap.Metrics.CognitiveComplexityAvg == nil) {
+				emit(ProgressEvent{
+					Type:      "progress",
+					Index:     step,
+					Total:     total,
+					CommitSHA: c.SHA,
+					ShortSHA:  c.Short,
+					Message:   c.Message,
+					Tag:       c.Tag,
+					Status:    "computing",
+				})
 				upgraded, err := measureWithWorktree(ctx, gitRoot, relPath, proj.OrganizationPackages, c, true)
 				if err == nil {
 					_ = cache.Put(projectKey, *upgraded)
 					upgraded.Cached = false
 					report.ComputedCount++
 					report.Points = append(report.Points, *upgraded)
+					emit(ProgressEvent{
+						Type:      "progress",
+						Index:     step,
+						Total:     total,
+						CommitSHA: c.SHA,
+						ShortSHA:  c.Short,
+						Message:   c.Message,
+						Tag:       c.Tag,
+						Status:    "done",
+						Snapshot:  upgraded,
+					})
 					continue
 				}
 			}
@@ -80,21 +124,66 @@ func Analyze(ctx context.Context, proj *project.ProjectInfo, cache *Cache, opts 
 			}
 			report.CachedCount++
 			report.Points = append(report.Points, *cachedSnap)
+			emit(ProgressEvent{
+				Type:      "progress",
+				Index:     step,
+				Total:     total,
+				CommitSHA: c.SHA,
+				ShortSHA:  c.Short,
+				Message:   c.Message,
+				Tag:       c.Tag,
+				Status:    "cached",
+				Snapshot:  cachedSnap,
+			})
 			continue
 		}
+
+		emit(ProgressEvent{
+			Type:      "progress",
+			Index:     step,
+			Total:     total,
+			CommitSHA: c.SHA,
+			ShortSHA:  c.Short,
+			Message:   c.Message,
+			Tag:       c.Tag,
+			Status:    "computing",
+		})
 
 		snap, err := measureWithWorktree(ctx, gitRoot, relPath, proj.OrganizationPackages, c, opts.IncludeComplexity)
 		if err != nil {
 			report.SkippedCount++
+			reason := fmt.Sprintf("%s: %v", c.Short, err)
 			if len(report.SkippedReasons) < 5 {
-				report.SkippedReasons = append(report.SkippedReasons, fmt.Sprintf("%s: %v", c.Short, err))
+				report.SkippedReasons = append(report.SkippedReasons, reason)
 			}
+			emit(ProgressEvent{
+				Type:      "progress",
+				Index:     step,
+				Total:     total,
+				CommitSHA: c.SHA,
+				ShortSHA:  c.Short,
+				Message:   c.Message,
+				Tag:       c.Tag,
+				Status:    "skipped",
+				Reason:    err.Error(),
+			})
 			continue
 		}
 
 		_ = cache.Put(projectKey, *snap)
 		report.ComputedCount++
 		report.Points = append(report.Points, *snap)
+		emit(ProgressEvent{
+			Type:      "progress",
+			Index:     step,
+			Total:     total,
+			CommitSHA: c.SHA,
+			ShortSHA:  c.Short,
+			Message:   c.Message,
+			Tag:       c.Tag,
+			Status:    "done",
+			Snapshot:  snap,
+		})
 	}
 
 	report.DurationMs = time.Since(start).Milliseconds()
