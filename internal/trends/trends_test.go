@@ -124,3 +124,13 @@ func TestTrendsAnalyzeAndCache(t *testing.T) {
 	require.Len(t, tagReport.Points, 2)
 	require.Equal(t, "v0.1.0", tagReport.Points[0].Tag)
 }
+
+func TestSampleByTagsSpansFullWindow(t *testing.T) {
+	repoRoot, err := filepath.Abs("../..")
+	require.NoError(t, err)
+
+	commits, err := sampleCommits(repoRoot, ModeTags, 0, 5)
+	require.NoError(t, err)
+	require.GreaterOrEqual(t, len(commits), 5)
+	require.Equal(t, "v0.0.1", commits[0].Tag)
+}

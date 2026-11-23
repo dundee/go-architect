@@ -201,7 +201,21 @@ func sampleByTags(repo *git.Repository, headCommit *object.Commit, since *time.T
 	})
 
 	if len(entries) > maxPoints {
-		entries = entries[len(entries)-maxPoints:]
+		// Sample evenly across all tags in the window (always keeping oldest and newest)
+		sampled := make([]tagEntry, 0, maxPoints)
+		seenIdx := make(map[int]struct{}, maxPoints)
+		step := float64(len(entries)-1) / float64(maxPoints-1)
+		for i := 0; i < maxPoints; i++ {
+			idx := int(float64(i)*step + 0.5)
+			if idx >= len(entries) {
+				idx = len(entries) - 1
+			}
+			if _, ok := seenIdx[idx]; !ok {
+				seenIdx[idx] = struct{}{}
+				sampled = append(sampled, entries[idx])
+			}
+		}
+		entries = sampled
 	}
 
 	headSHA := headCommit.Hash.String()

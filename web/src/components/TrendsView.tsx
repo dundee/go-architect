@@ -83,7 +83,7 @@ export function TrendsView({ project, refreshSignal }: TrendsViewProps) {
       {
         mode,
         months,
-        limit: 12,
+        limit: mode === 'tags' ? 20 : 12,
         includeComplexity,
       },
       {
