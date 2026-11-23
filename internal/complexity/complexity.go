@@ -7,8 +7,10 @@ import (
 	"io/fs"
 	"path"
 	"path/filepath"
+	"runtime"
 	"sort"
 	"strings"
+	"sync"
 
 	"github.com/fzipp/gocyclo"
 	"github.com/uudashr/gocognit"
@@ -31,6 +33,13 @@ type Report struct {
 	Cognitive  Output
 }
 
+type workerResult struct {
+	cycloDetails  []Detail
+	cognitDetails []Detail
+	cycloSum      int
+	cognitSum     int
+}
+
 func Calculate(projectPath, mainPackage string, topN int) (*Report, error) {
 	if topN <= 0 {
 		topN = 5
@@ -41,14 +50,30 @@ func Calculate(projectPath, mainPackage string, topN int) (*Report, error) {
 		return nil, fmt.Errorf("resolve project path: %w", err)
 	}
 
-	fset := token.NewFileSet()
-	var cycloDetails []Detail
-	var cognitDetails []Detail
-	var cycloSum, cognitSum int
+	workers := runtime.GOMAXPROCS(0)
+	if workers < 1 {
+		workers = 1
+	}
 
-	err = filepath.WalkDir(absRoot, func(filePath string, d fs.DirEntry, walkErr error) error {
-		if walkErr != nil {
-			return walkErr
+	jobs := make(chan string, workers*4)
+	results := make([]workerResult, workers)
+
+	var wg sync.WaitGroup
+	wg.Add(workers)
+	for w := 0; w < workers; w++ {
+		go func(workerID int) {
+			defer wg.Done()
+			var local workerResult
+			for filePath := range jobs {
+				processFile(absRoot, filePath, mainPackage, &local)
+			}
+			results[workerID] = local
+		}(w)
+	}
+
+	walkErr := filepath.WalkDir(absRoot, func(filePath string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
 		}
 
 		name := d.Name()
@@ -63,51 +88,69 @@ func Calculate(projectPath, mainPackage string, topN int) (*Report, error) {
 			return nil
 		}
 
-		astFile, parseErr := parser.ParseFile(fset, filePath, nil, 0)
-		if parseErr != nil {
-			// Skip unparseable/generated scratch files gracefully.
-			return nil
-		}
-
-		pkgLabel := resolvePackageName(absRoot, filePath, mainPackage, astFile.Name.Name)
-		relFile, relErr := filepath.Rel(absRoot, filePath)
-		if relErr != nil {
-			relFile = name
-		}
-		relFileSlash := filepath.ToSlash(relFile)
-
-		cStats := gocyclo.AnalyzeASTFile(astFile, fset, nil)
-		for _, st := range cStats {
-			cycloSum += st.Complexity
-			cycloDetails = append(cycloDetails, Detail{
-				Package:    pkgLabel,
-				File:       fmt.Sprintf("%s:%d", relFileSlash, st.Pos.Line),
-				Function:   st.FuncName,
-				Complexity: st.Complexity,
-			})
-		}
-
-		gStats := gocognit.ComplexityStats(astFile, fset, nil)
-		for _, st := range gStats {
-			cognitSum += st.Complexity
-			cognitDetails = append(cognitDetails, Detail{
-				Package:    pkgLabel,
-				File:       fmt.Sprintf("%s:%d", relFileSlash, st.Pos.Line),
-				Function:   st.FuncName,
-				Complexity: st.Complexity,
-			})
-		}
-
+		jobs <- filePath
 		return nil
 	})
-	if err != nil {
-		return nil, fmt.Errorf("walk project files: %w", err)
+	close(jobs)
+	wg.Wait()
+
+	if walkErr != nil {
+		return nil, fmt.Errorf("walk project files: %w", walkErr)
+	}
+
+	var cycloDetails []Detail
+	var cognitDetails []Detail
+	var cycloSum, cognitSum int
+	for _, r := range results {
+		cycloSum += r.cycloSum
+		cognitSum += r.cognitSum
+		cycloDetails = append(cycloDetails, r.cycloDetails...)
+		cognitDetails = append(cognitDetails, r.cognitDetails...)
 	}
 
 	return &Report{
 		Cyclomatic: summarize(cycloDetails, cycloSum, topN),
 		Cognitive:  summarize(cognitDetails, cognitSum, topN),
 	}, nil
+}
+
+func processFile(absRoot, filePath, mainPackage string, out *workerResult) {
+	// Per-file FileSet avoids shared mutex contention and keeps memory bounded.
+	fset := token.NewFileSet()
+	astFile, parseErr := parser.ParseFile(fset, filePath, nil, 0)
+	if parseErr != nil {
+		// Skip unparseable/generated scratch files gracefully.
+		return
+	}
+
+	pkgLabel := resolvePackageName(absRoot, filePath, mainPackage, astFile.Name.Name)
+	relFile, relErr := filepath.Rel(absRoot, filePath)
+	if relErr != nil {
+		relFile = filepath.Base(filePath)
+	}
+	relFileSlash := filepath.ToSlash(relFile)
+
+	cStats := gocyclo.AnalyzeASTFile(astFile, fset, nil)
+	for _, st := range cStats {
+		out.cycloSum += st.Complexity
+		out.cycloDetails = append(out.cycloDetails, Detail{
+			Package:    pkgLabel,
+			File:       fmt.Sprintf("%s:%d", relFileSlash, st.Pos.Line),
+			Function:   st.FuncName,
+			Complexity: st.Complexity,
+		})
+	}
+
+	gStats := gocognit.ComplexityStats(astFile, fset, nil)
+	for _, st := range gStats {
+		out.cognitSum += st.Complexity
+		out.cognitDetails = append(out.cognitDetails, Detail{
+			Package:    pkgLabel,
+			File:       fmt.Sprintf("%s:%d", relFileSlash, st.Pos.Line),
+			Function:   st.FuncName,
+			Complexity: st.Complexity,
+		})
+	}
 }
 
 func resolvePackageName(projectRoot, filePath, mainPackage, astPkg string) string {

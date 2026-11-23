@@ -61,3 +61,23 @@ func TestHuge() {
 	require.Len(t, report.Cognitive.ComplexityDetails, 2)
 	require.Equal(t, "branching", report.Cognitive.ComplexityDetails[0].Function)
 }
+
+func TestCalculateWorkerPoolDeterministic(t *testing.T) {
+	dir := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "go.mod"), []byte("module example.com/many\n\ngo 1.24\n"), 0o644))
+
+	for i := 0; i < 24; i++ {
+		sub := filepath.Join(dir, "pkg", string(rune('a'+i)))
+		require.NoError(t, os.MkdirAll(sub, 0o755))
+		src := "package p\nfunc fn(x int) int {\n\tif x > 0 {\n\t\treturn 1\n\t}\n\treturn 0\n}\n"
+		require.NoError(t, os.WriteFile(filepath.Join(sub, "f.go"), []byte(src), 0o644))
+	}
+
+	first, err := Calculate(dir, "example.com/many", 5)
+	require.NoError(t, err)
+	for run := 0; run < 5; run++ {
+		next, err := Calculate(dir, "example.com/many", 5)
+		require.NoError(t, err)
+		require.Equal(t, first, next)
+	}
+}
