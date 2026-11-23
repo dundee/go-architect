@@ -1,4 +1,4 @@
-.PHONY: web-install web-build build install run test
+.PHONY: web-install web-build build install run test lint vet install-dependencies
 
 web-install:
 	cd web && npm install
@@ -17,3 +17,12 @@ run:
 
 test:
 	go test ./...
+
+lint:
+	golangci-lint run
+
+vet:
+	go vet ./...
+
+install-dependencies:
+	go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
