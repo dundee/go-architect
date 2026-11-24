@@ -531,44 +531,38 @@ export function TrendsView({ project, refreshSignal }: TrendsViewProps) {
               ]}
             />
 
-            {includeComplexity && (
-              <div className="lg:col-span-2">
-                {hasComplexityData ? (
-                  <TrendChartCard
-                    title="Average Complexity (Opt-in)"
-                    subtitle="Cyclomatic (gocyclo) and Cognitive (gocognit) averages"
-                    points={points}
-                    hoveredIdx={hoveredIdx}
-                    onHoverIdx={setHoveredIdx}
-                    series={[
-                      {
-                        id: 'cyclo',
-                        label: 'Cyclomatic Avg',
-                        color: '#d97706',
-                        getValue: (p) =>
-                          p.metrics.cyclomatic_complexity_avg ?? null,
-                        formatValue: (v) => v.toFixed(2),
-                      },
-                      {
-                        id: 'cognit',
-                        label: 'Cognitive Avg',
-                        color: '#7c3aed',
-                        getValue: (p) =>
-                          p.metrics.cognitive_complexity_avg ?? null,
-                        formatValue: (v) => v.toFixed(2),
-                      },
-                    ]}
-                  />
-                ) : (
-                  <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-xs text-amber-900">
-                    Complexity metrics could not be measured because{' '}
-                    <code className="font-mono">gocyclo</code> /{' '}
-                    <code className="font-mono">gocognit</code> were not found
-                    on <code className="font-mono">PATH</code>.
-                  </div>
-                )}
-              </div>
-            )}
+            {includeComplexity &&
+              (hasComplexityData ? (
+                <TrendChartCard
+                  title="Average Complexity (Opt-in)"
+                  subtitle="Cyclomatic and Cognitive complexity averages"
+                  points={points}
+                  hoveredIdx={hoveredIdx}
+                  onHoverIdx={setHoveredIdx}
+                  series={[
+                    {
+                      id: 'cyclo',
+                      label: 'Cyclomatic Avg',
+                      color: '#d97706',
+                      getValue: (p) =>
+                        p.metrics.cyclomatic_complexity_avg ?? null,
+                      formatValue: (v) => v.toFixed(2),
+                    },
+                    {
+                      id: 'cognit',
+                      label: 'Cognitive Avg',
+                      color: '#7c3aed',
+                      getValue: (p) =>
+                        p.metrics.cognitive_complexity_avg ?? null,
+                      formatValue: (v) => v.toFixed(2),
+                    },
+                  ]}
+                />
+              ) : (
+                <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-xs text-amber-900">
+                  Complexity metrics are unavailable for the sampled commits.
+                </div>
+              ))}
           </div>
 
           {/* Sampled Snapshots Table */}
