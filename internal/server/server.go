@@ -18,6 +18,7 @@ import (
 	"github.com/dundee/go-architect/backend/git"
 	"github.com/dundee/go-architect/internal/cache"
 	"github.com/dundee/go-architect/internal/complexity"
+	"github.com/dundee/go-architect/internal/metrics"
 	"github.com/dundee/go-architect/internal/trends"
 	"github.com/go-architect/go-architect-lib/coupling"
 	"github.com/go-architect/go-architect-lib/dependency"
@@ -29,7 +30,6 @@ import (
 	"github.com/go-architect/go-architect-lib/metrics/types"
 	"github.com/go-architect/go-architect-lib/project"
 	"github.com/go-architect/go-architect-lib/repository"
-	"golang.org/x/sync/errgroup"
 )
 
 type Server struct {
@@ -490,92 +490,32 @@ func (s *Server) handleGetMetrics(w http.ResponseWriter, r *http.Request) {
 		compReport, compCached = s.cacheStore.GetComplexity(cc.complexityKey, cc.sha)
 	}
 
-	g, _ := errgroup.WithContext(r.Context())
-
-	if !baseCached {
-		var (
-			locRes      *loc.ProjectLOC
-			typesRes    *types.ProjectTypes
-			ifaceRes    *interfaces.InterfaceMetrics
-			commentsRes *comments.CommentsMetrics
-		)
-		var baseGroup errgroup.Group
-		baseGroup.Go(func() error {
-			res, err := loc.CountLoc(proj)
-			if err != nil {
-				return fmt.Errorf("count LOC: %w", err)
-			}
-			locRes = res
-			return nil
+	if !baseCached || !compCached {
+		res, err := metrics.Calculate(proj.Path, proj.Package, metrics.Options{
+			NeedBase:       !baseCached,
+			NeedComplexity: !compCached,
+			TopN:           5,
 		})
-		baseGroup.Go(func() error {
-			res, err := types.ResolveProjectTypes(proj)
-			if err != nil {
-				return fmt.Errorf("resolve project types: %w", err)
-			}
-			typesRes = res
-			return nil
-		})
-		baseGroup.Go(func() error {
-			res, err := interfaces.ResolveInterfaceMetrics(proj)
-			if err != nil {
-				return fmt.Errorf("resolve interface metrics: %w", err)
-			}
-			ifaceRes = res
-			return nil
-		})
-		baseGroup.Go(func() error {
-			res, err := comments.ResolveCommentsMetrics(proj)
-			if err != nil {
-				return fmt.Errorf("resolve comments metrics: %w", err)
-			}
-			commentsRes = res
-			return nil
-		})
-
-		g.Go(func() error {
-			if err := baseGroup.Wait(); err != nil {
-				return err
-			}
-			baseMetrics = &cache.MetricsBase{
-				LOC:        locRes,
-				Types:      typesRes,
-				Interfaces: ifaceRes,
-				Comments:   commentsRes,
-			}
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, fmt.Sprintf("calculate project metrics: %v", err))
+			return
+		}
+		if !baseCached && res.Base != nil {
+			baseMetrics = res.Base
 			if cc.canWrite {
 				_ = s.cacheStore.PutMetricsBase(cc.complexityKey, cc.sha, baseMetrics)
 			}
-			return nil
-		})
-	}
-
-	var compErr error
-	if !compCached {
-		g.Go(func() error {
-			res, err := complexity.Calculate(proj.Path, proj.Package, 5)
-			if err != nil {
-				compErr = err
-				return nil
-			}
-			compReport = res
+		}
+		if !compCached && res.Complexity != nil {
+			compReport = res.Complexity
 			if cc.canWrite {
 				_ = s.cacheStore.PutComplexity(cc.complexityKey, cc.sha, compReport)
 			}
-			return nil
-		})
-	}
-
-	if err := g.Wait(); err != nil {
-		writeError(w, http.StatusInternalServerError, err.Error())
-		return
+		}
 	}
 
 	var cycloRes, cognitRes ComplexityResult
-	if compErr != nil {
-		cycloRes = ComplexityResult{Error: compErr.Error()}
-		cognitRes = ComplexityResult{Error: compErr.Error()}
-	} else if compReport != nil {
+	if compReport != nil {
 		cycloRes = ComplexityResult{Data: &compReport.Cyclomatic}
 		cognitRes = ComplexityResult{Data: &compReport.Cognitive}
 	}
