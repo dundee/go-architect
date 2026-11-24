@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   AlertCircle,
   Loader2,
@@ -40,10 +40,12 @@ export function InstabilityView({
   )
   const [hoveredKey, setHoveredKey] = useState<string | null>(null)
 
-  const loadData = useCallback((signal?: AbortSignal) => {
+  const lastRefreshRef = useRef(refreshSignal)
+
+  const loadData = useCallback((signal?: AbortSignal, refresh?: boolean) => {
     setLoading(true)
     setError(null)
-    fetchInstability(signal)
+    fetchInstability(signal, refresh)
       .then((res) => {
         if (signal?.aborted) return
         setPackages(res.packages ?? [])
@@ -65,7 +67,9 @@ export function InstabilityView({
 
   useEffect(() => {
     const controller = new AbortController()
-    loadData(controller.signal)
+    const isRefresh = lastRefreshRef.current !== refreshSignal
+    lastRefreshRef.current = refreshSignal
+    loadData(controller.signal, isRefresh)
     return () => controller.abort()
   }, [project.path, refreshSignal, loadData])
 

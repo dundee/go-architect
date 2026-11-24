@@ -241,3 +241,84 @@ func TestServerEndpoints(t *testing.T) {
 		require.Equal(t, http.StatusNotFound, recUnknownAPI.Code)
 	})
 }
+
+func TestServerCommitCaching(t *testing.T) {
+	t.Setenv("XDG_CACHE_HOME", t.TempDir())
+	t.Setenv("HOME", t.TempDir())
+
+	gitRepoDir := createTempGoGitRepo(t)
+	srv, err := New(gitRepoDir, nil, testDistFS())
+	require.NoError(t, err)
+
+	// 1. First request misses cache and populates protobuf cache files.
+	for _, path := range []string{
+		"/api/instability",
+		"/api/dependency-graph",
+		"/api/dsm",
+		"/api/coupling?dependency=fmt",
+		"/api/metrics",
+		"/api/vcs?months=6",
+	} {
+		rec := httptest.NewRecorder()
+		srv.Handler().ServeHTTP(rec, httptest.NewRequest(http.MethodGet, path, nil))
+		require.Equal(t, http.StatusOK, rec.Code, path)
+
+		var meta struct {
+			Cached bool `json:"cached"`
+		}
+		require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &meta))
+		require.False(t, meta.Cached, "expected cache miss on first request for %s", path)
+	}
+
+	// Verify separate complexity_*.pb and metrics_*.pb files exist.
+	cacheFiles, err := filepath.Glob(filepath.Join(srv.cacheStore.DirForTest(), "*.pb"))
+	require.NoError(t, err)
+	require.NotEmpty(t, cacheFiles)
+
+	// 2. Second request hits protobuf cache for every tab.
+	for _, path := range []string{
+		"/api/instability",
+		"/api/dependency-graph",
+		"/api/dsm",
+		"/api/coupling?dependency=fmt",
+		"/api/metrics",
+		"/api/vcs?months=6",
+	} {
+		rec := httptest.NewRecorder()
+		srv.Handler().ServeHTTP(rec, httptest.NewRequest(http.MethodGet, path, nil))
+		require.Equal(t, http.StatusOK, rec.Code, path)
+
+		var meta struct {
+			Cached bool `json:"cached"`
+		}
+		require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &meta))
+		require.True(t, meta.Cached, "expected cache hit on second request for %s", path)
+	}
+
+	// 3. Trends with include_complexity=true reuses HEAD's complexity_*.pb written by /api/metrics.
+	recTrends := httptest.NewRecorder()
+	srv.Handler().ServeHTTP(recTrends, httptest.NewRequest(http.MethodGet, "/api/trends?mode=buckets&months=12&include_complexity=true", nil))
+	require.Equal(t, http.StatusOK, recTrends.Code)
+	require.Contains(t, recTrends.Body.String(), `"cyclomatic_complexity_avg"`)
+
+	// 4. Explicit refresh=true bypasses cache read.
+	recRefresh := httptest.NewRecorder()
+	srv.Handler().ServeHTTP(recRefresh, httptest.NewRequest(http.MethodGet, "/api/instability?refresh=true", nil))
+	require.Equal(t, http.StatusOK, recRefresh.Code)
+	var metaRefresh struct {
+		Cached bool `json:"cached"`
+	}
+	require.NoError(t, json.Unmarshal(recRefresh.Body.Bytes(), &metaRefresh))
+	require.False(t, metaRefresh.Cached)
+
+	// 5. Dirty working tree bypasses commit cache.
+	require.NoError(t, os.WriteFile(filepath.Join(gitRepoDir, "untracked.go"), []byte("package main\n"), 0o644))
+	recDirty := httptest.NewRecorder()
+	srv.Handler().ServeHTTP(recDirty, httptest.NewRequest(http.MethodGet, "/api/instability", nil))
+	require.Equal(t, http.StatusOK, recDirty.Code)
+	var metaDirty struct {
+		Cached bool `json:"cached"`
+	}
+	require.NoError(t, json.Unmarshal(recDirty.Body.Bytes(), &metaDirty))
+	require.False(t, metaDirty.Cached)
+}

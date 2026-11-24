@@ -1,82 +1,108 @@
 package trends
 
 import (
-	"crypto/sha256"
-	"encoding/hex"
-	"encoding/json"
 	"fmt"
-	"os"
-	"path/filepath"
-	"strings"
+	"time"
+
+	"github.com/dundee/go-architect/internal/cache"
+	"github.com/dundee/go-architect/internal/cache/cachepb"
+	"github.com/dundee/go-architect/internal/complexity"
 )
 
-const snapshotSchemaVersion = "v1"
-
 type Cache struct {
-	dir string
+	store *cache.Store
 }
 
 func DefaultCacheDir() (string, error) {
-	base, err := os.UserCacheDir()
-	if err != nil {
-		return "", fmt.Errorf("resolve user cache dir: %w", err)
-	}
-	return filepath.Join(base, "go-architect", "snapshots"), nil
+	return cache.DefaultDir()
 }
 
 func NewCache(dir string) *Cache {
-	return &Cache{dir: dir}
-}
-
-func (c *Cache) keyPath(projectKey, sha string) string {
-	sum := sha256.Sum256([]byte(projectKey))
-	shortProj := hex.EncodeToString(sum[:8])
-	safeSHA := strings.TrimSpace(sha)
-	return filepath.Join(c.dir, fmt.Sprintf("%s_%s_%s.json", snapshotSchemaVersion, shortProj, safeSHA))
-}
-
-func (c *Cache) Get(projectKey, sha string) (*CommitSnapshot, bool) {
-	if c == nil || c.dir == "" {
-		return nil, false
-	}
-	data, err := os.ReadFile(c.keyPath(projectKey, sha))
-	if err != nil {
-		return nil, false
-	}
-	var snap CommitSnapshot
-	if err := json.Unmarshal(data, &snap); err != nil {
-		return nil, false
-	}
-	return &snap, true
-}
-
-func (c *Cache) Put(projectKey string, snap CommitSnapshot) error {
-	if c == nil || c.dir == "" {
+	if dir == "" {
 		return nil
 	}
-	if err := os.MkdirAll(c.dir, 0o755); err != nil {
-		return err
-	}
-	snap.Cached = false
-	payload, err := json.Marshal(snap)
-	if err != nil {
-		return err
-	}
+	return &Cache{store: cache.NewStore(dir)}
+}
 
-	target := c.keyPath(projectKey, snap.CommitSHA)
-	tmp, err := os.CreateTemp(c.dir, "snap-*.tmp")
-	if err != nil {
-		return err
+func NewCacheFromStore(store *cache.Store) *Cache {
+	if store == nil {
+		return nil
 	}
-	tmpName := tmp.Name()
-	if _, err := tmp.Write(payload); err != nil {
-		_ = tmp.Close()
-		_ = os.Remove(tmpName)
-		return err
+	return &Cache{store: store}
+}
+
+func (c *Cache) GetSnapshot(projectKey, sha string) (*CommitSnapshot, bool) {
+	if c == nil || c.store == nil {
+		return nil, false
 	}
-	if err := tmp.Close(); err != nil {
-		_ = os.Remove(tmpName)
-		return err
+	var pb cachepb.CommitSnapshotProto
+	if !c.store.GetProto("trends", fmt.Sprintf("%s@%s", projectKey, sha), &pb) {
+		return nil, false
 	}
-	return os.Rename(tmpName, target)
+	m := pb.GetMetrics()
+	return &CommitSnapshot{
+		CommitSHA: pb.GetCommitSha(),
+		ShortSHA:  pb.GetShortSha(),
+		Date:      time.Unix(0, pb.GetDateUnixNano()).UTC(),
+		Message:   pb.GetMessage(),
+		Tag:       pb.GetTag(),
+		Metrics: SnapshotMetrics{
+			LOC:                    int(m.GetLoc()),
+			Packages:               int(m.GetPackages()),
+			SourceFiles:            int(m.GetSourceFiles()),
+			Structs:                int(m.GetStructs()),
+			Interfaces:             int(m.GetInterfaces()),
+			Functions:              int(m.GetFunctions()),
+			Methods:                int(m.GetMethods()),
+			CommentsTotalLines:     int(m.GetCommentsTotalLines()),
+			CommentsRatio:          m.GetCommentsRatio(),
+			InterfaceAvgMethods:    m.GetInterfaceAvgMethods(),
+			AvgDistance:            m.GetAvgDistance(),
+			ZoneOfPainCount:        int(m.GetZoneOfPainCount()),
+			ZoneOfUselessnessCount: int(m.GetZoneOfUselessnessCount()),
+		},
+	}, true
+}
+
+func (c *Cache) PutSnapshot(projectKey string, snap CommitSnapshot) error {
+	if c == nil || c.store == nil {
+		return nil
+	}
+	pb := &cachepb.CommitSnapshotProto{
+		CommitSha:    snap.CommitSHA,
+		ShortSha:     snap.ShortSHA,
+		DateUnixNano: snap.Date.UnixNano(),
+		Message:      snap.Message,
+		Tag:          snap.Tag,
+		Metrics: &cachepb.SnapshotMetricsProto{
+			Loc:                    int32(snap.Metrics.LOC),
+			Packages:               int32(snap.Metrics.Packages),
+			SourceFiles:            int32(snap.Metrics.SourceFiles),
+			Structs:                int32(snap.Metrics.Structs),
+			Interfaces:             int32(snap.Metrics.Interfaces),
+			Functions:              int32(snap.Metrics.Functions),
+			Methods:                int32(snap.Metrics.Methods),
+			CommentsTotalLines:     int32(snap.Metrics.CommentsTotalLines),
+			CommentsRatio:          snap.Metrics.CommentsRatio,
+			InterfaceAvgMethods:    snap.Metrics.InterfaceAvgMethods,
+			AvgDistance:            snap.Metrics.AvgDistance,
+			ZoneOfPainCount:        int32(snap.Metrics.ZoneOfPainCount),
+			ZoneOfUselessnessCount: int32(snap.Metrics.ZoneOfUselessnessCount),
+		},
+	}
+	return c.store.PutProto("trends", fmt.Sprintf("%s@%s", projectKey, snap.CommitSHA), pb)
+}
+
+func (c *Cache) GetComplexity(projectKey, sha string) (*complexity.Report, bool) {
+	if c == nil || c.store == nil {
+		return nil, false
+	}
+	return c.store.GetComplexity(projectKey, sha)
+}
+
+func (c *Cache) PutComplexity(projectKey, sha string, report *complexity.Report) error {
+	if c == nil || c.store == nil {
+		return nil
+	}
+	return c.store.PutComplexity(projectKey, sha, report)
 }

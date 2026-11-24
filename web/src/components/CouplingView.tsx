@@ -55,6 +55,7 @@ export function CouplingView({
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
+  const lastRefreshRef = useRef(refreshSignal)
   const containerRef = useRef<HTMLDivElement | null>(null)
 
   // Load dependency list for searchable combobox
@@ -90,13 +91,13 @@ export function CouplingView({
   }, [])
 
   const runAnalysis = useCallback(
-    (dep: string, signal?: AbortSignal) => {
+    (dep: string, signal?: AbortSignal, refresh?: boolean) => {
       const normalized = dep.trim().toLowerCase()
       if (!normalized) return
       setLoading(true)
       setError(null)
       onDependencyChange(normalized)
-      fetchCoupling(normalized, signal)
+      fetchCoupling(normalized, signal, refresh)
         .then((res) => {
           if (signal?.aborted) return
           setResult(res.coupling)
@@ -119,7 +120,9 @@ export function CouplingView({
     if (!initialDependency) return
     setQuery(initialDependency)
     const controller = new AbortController()
-    runAnalysis(initialDependency, controller.signal)
+    const isRefresh = lastRefreshRef.current !== refreshSignal
+    lastRefreshRef.current = refreshSignal
+    runAnalysis(initialDependency, controller.signal, isRefresh)
     return () => controller.abort()
   }, [initialDependency, refreshSignal, runAnalysis])
 

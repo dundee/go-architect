@@ -115,7 +115,7 @@ func TestTrendsAnalyzeAndCache(t *testing.T) {
 	require.Equal(t, 0, report2.ComputedCount)
 	require.True(t, report2.Points[0].Cached)
 
-	// Tags mode includes v0.1.0 + HEAD (also verify opt-in complexity upgrades cached snapshots)
+	// Tags mode includes v0.1.0 + HEAD (also verify opt-in complexity caches separately without rewriting trends_*.pb)
 	tagReport, err := Analyze(ctx, proj, cache, Options{
 		Mode:              ModeTags,
 		Months:            0,
@@ -127,6 +127,24 @@ func TestTrendsAnalyzeAndCache(t *testing.T) {
 	require.Equal(t, "v0.1.0", tagReport.Points[0].Tag)
 	require.NotNil(t, tagReport.Points[0].Metrics.CyclomaticComplexityAvg)
 	require.NotNil(t, tagReport.Points[0].Metrics.CognitiveComplexityAvg)
+
+	compFiles, err := filepath.Glob(filepath.Join(cacheDir, "complexity_*.pb"))
+	require.NoError(t, err)
+	require.Len(t, compFiles, 2)
+	trendFiles, err := filepath.Glob(filepath.Join(cacheDir, "trends_*.pb"))
+	require.NoError(t, err)
+	require.Len(t, trendFiles, 2)
+
+	// Subsequent IncludeComplexity=true run hits both trends and complexity caches.
+	tagReportCached, err := Analyze(ctx, proj, cache, Options{
+		Mode:              ModeTags,
+		Months:            0,
+		MaxPoints:         12,
+		IncludeComplexity: true,
+	})
+	require.NoError(t, err)
+	require.Equal(t, 2, tagReportCached.CachedCount)
+	require.Equal(t, 0, tagReportCached.ComputedCount)
 }
 
 func TestSampleByTagsSpansFullWindow(t *testing.T) {

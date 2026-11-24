@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   Background,
   Controls,
@@ -142,10 +142,12 @@ export function DependencyGraphView({
   const [searchQuery, setSearchQuery] = useState('')
   const [selectedPkg, setSelectedPkg] = useState<string | null>(null)
 
-  const loadData = useCallback((signal?: AbortSignal) => {
+  const lastRefreshRef = useRef(refreshSignal)
+
+  const loadData = useCallback((signal?: AbortSignal, refresh?: boolean) => {
     setLoading(true)
     setError(null)
-    fetchDependencyGraph(signal)
+    fetchDependencyGraph(signal, refresh)
       .then((res) => {
         if (signal?.aborted) return
         setGraph(res.graph)
@@ -168,7 +170,9 @@ export function DependencyGraphView({
 
   useEffect(() => {
     const controller = new AbortController()
-    loadData(controller.signal)
+    const isRefresh = lastRefreshRef.current !== refreshSignal
+    lastRefreshRef.current = refreshSignal
+    loadData(controller.signal, isRefresh)
     return () => controller.abort()
   }, [project.path, project.organization_packages, refreshSignal, loadData])
 

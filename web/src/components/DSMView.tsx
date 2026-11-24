@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   AlertCircle,
   AlertTriangle,
@@ -50,10 +50,12 @@ export function DSMView({ project, refreshSignal }: DSMViewProps) {
     [project.organization_packages],
   )
 
-  const loadData = useCallback((signal?: AbortSignal) => {
+  const lastRefreshRef = useRef(refreshSignal)
+
+  const loadData = useCallback((signal?: AbortSignal, refresh?: boolean) => {
     setLoading(true)
     setError(null)
-    fetchDSM(signal)
+    fetchDSM(signal, refresh)
       .then((res) => {
         if (signal?.aborted) return
         setDsm(res.dsm)
@@ -77,7 +79,9 @@ export function DSMView({ project, refreshSignal }: DSMViewProps) {
 
   useEffect(() => {
     const controller = new AbortController()
-    loadData(controller.signal)
+    const isRefresh = lastRefreshRef.current !== refreshSignal
+    lastRefreshRef.current = refreshSignal
+    loadData(controller.signal, isRefresh)
     return () => controller.abort()
   }, [project.path, project.organization_packages, refreshSignal, loadData])
 

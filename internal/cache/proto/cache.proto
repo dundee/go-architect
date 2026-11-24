@@ -1,0 +1,206 @@
+syntax = "proto3";
+
+package cachepb;
+
+option go_package = "github.com/dundee/go-architect/internal/cache/cachepb;cachepb";
+
+message SnapshotMetricsProto {
+  int32 loc = 1;
+  int32 packages = 2;
+  int32 source_files = 3;
+  int32 structs = 4;
+  int32 interfaces = 5;
+  int32 functions = 6;
+  int32 methods = 7;
+  int32 comments_total_lines = 8;
+  double comments_ratio = 9;
+  double interface_avg_methods = 10;
+  double avg_distance = 11;
+  int32 zone_of_pain_count = 12;
+  int32 zone_of_uselessness_count = 13;
+}
+
+message CommitSnapshotProto {
+  string commit_sha = 1;
+  string short_sha = 2;
+  int64 date_unix_nano = 3;
+  string message = 4;
+  string tag = 5;
+  SnapshotMetricsProto metrics = 6;
+}
+
+message ComplexityDetailProto {
+  string package = 1;
+  string file = 2;
+  string function = 3;
+  int32 complexity = 4;
+}
+
+message ComplexityOutputProto {
+  double average_complexity = 1;
+  repeated ComplexityDetailProto details = 2;
+}
+
+message ComplexityReportProto {
+  ComplexityOutputProto cyclomatic = 1;
+  ComplexityOutputProto cognitive = 2;
+}
+
+message PackageInstabilityProto {
+  string package_name = 1;
+  int32 abstractions_count = 2;
+  int32 implementations_count = 3;
+  int32 afferent_coupling = 4;
+  int32 efferent_coupling = 5;
+  double instability = 6;
+  double abstractness = 7;
+  double distance = 8;
+}
+
+message InstabilityCacheProto {
+  repeated PackageInstabilityProto packages = 1;
+}
+
+message StringListProto {
+  repeated string values = 1;
+}
+
+message DependencyGraphCacheProto {
+  string module = 1;
+  repeated string internal = 2;
+  repeated string external = 3;
+  repeated string organization = 4;
+  repeated string standard = 5;
+  map<string, StringListProto> relations = 6;
+}
+
+message Int64ListProto {
+  repeated int64 values = 1;
+}
+
+message DSMCacheProto {
+  string module = 1;
+  repeated string packages = 2;
+  repeated Int64ListProto dependencies = 3;
+}
+
+message CouplingDetailProto {
+  int32 line = 1;
+  string details = 2;
+}
+
+message FileCouplingProto {
+  string package = 1;
+  string file = 2;
+  string file_content = 3;
+  repeated int32 coupling_lines = 4;
+  int32 coupling_level = 5;
+  repeated CouplingDetailProto details = 6;
+}
+
+message PackageCouplingProto {
+  string package = 1;
+  int32 coupling_level = 2;
+  repeated FileCouplingProto details = 3;
+}
+
+message CouplingCacheProto {
+  string dependency = 1;
+  int32 coupling_level = 2;
+  repeated PackageCouplingProto details = 3;
+}
+
+message PackageLOCProto {
+  string package = 1;
+  int32 loc = 2;
+}
+
+message FileLOCProto {
+  string package = 1;
+  string file = 2;
+  int32 loc = 3;
+}
+
+message TypeCounterProto {
+  int32 source_files = 1;
+  int32 structs = 2;
+  int32 interfaces = 3;
+  int32 functions = 4;
+  int32 methods = 5;
+  int32 variables = 6;
+  int32 constants = 7;
+  int32 public_structs = 8;
+  int32 public_interfaces = 9;
+  int32 public_functions = 10;
+  int32 public_methods = 11;
+  int32 public_variables = 12;
+  int32 public_constants = 13;
+}
+
+message PackageTypesProto {
+  string package = 1;
+  TypeCounterProto counts = 2;
+}
+
+message ProjectTypesProto {
+  string project_package = 1;
+  int32 packages = 2;
+  TypeCounterProto totals = 3;
+  repeated PackageTypesProto details = 4;
+}
+
+message InterfaceInfoProto {
+  string package = 1;
+  string file = 2;
+  string name = 3;
+  int32 methods = 4;
+}
+
+message InterfaceMetricsProto {
+  double average_methods = 1;
+  repeated InterfaceInfoProto max_methods = 2;
+  repeated InterfaceInfoProto min_methods = 3;
+}
+
+message CommentsMetricsProto {
+  int32 total_lines = 1;
+  double ratio = 2;
+  int32 files_with_comments = 3;
+  double files_with_comments_ratio = 4;
+}
+
+message MetricsBaseCacheProto {
+  int32 loc_total = 1;
+  repeated PackageLOCProto loc_packages = 2;
+  repeated FileLOCProto loc_files = 3;
+  ProjectTypesProto types = 4;
+  InterfaceMetricsProto interfaces = 5;
+  CommentsMetricsProto comments = 6;
+}
+
+message AuthorInfoProto {
+  string name = 1;
+  int32 commits = 2;
+  int32 modified_lines = 3;
+}
+
+message ContributorSummaryProto {
+  string name = 1;
+  int32 modifications = 2;
+}
+
+message ModificationsInfoProto {
+  string source = 1;
+  int32 total_modifications = 2;
+  repeated ContributorSummaryProto authors_summary = 3;
+}
+
+message VCSCacheProto {
+  int64 since_unix_nano = 1;
+  int32 total_authors = 2;
+  int32 total_commits = 3;
+  int32 total_modifications = 4;
+  repeated AuthorInfoProto author_details = 5;
+  repeated ModificationsInfoProto path_modifications = 6;
+  repeated ModificationsInfoProto file_modifications = 7;
+}

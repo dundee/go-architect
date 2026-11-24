@@ -1,6 +1,7 @@
 package server
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -15,6 +16,7 @@ import (
 	"time"
 
 	"github.com/dundee/go-architect/backend/git"
+	"github.com/dundee/go-architect/internal/cache"
 	"github.com/dundee/go-architect/internal/complexity"
 	"github.com/dundee/go-architect/internal/trends"
 	"github.com/go-architect/go-architect-lib/coupling"
@@ -35,6 +37,7 @@ type Server struct {
 	projectInfo *project.ProjectInfo
 	repoInfo    *repository.RepositoryInfo
 	distFS      fs.FS
+	cacheStore  *cache.Store
 	trendsCache *trends.Cache
 	mux         *http.ServeMux
 }
@@ -46,21 +49,25 @@ type ProjectContextResponse struct {
 
 type InstabilityResponse struct {
 	Packages   []*instability.PackageInstability `json:"packages"`
+	Cached     bool                              `json:"cached"`
 	DurationMs int64                             `json:"duration_ms"`
 }
 
 type DependencyGraphResponse struct {
 	Graph      *dependency.ModuleDependencyGraph `json:"graph"`
+	Cached     bool                              `json:"cached"`
 	DurationMs int64                             `json:"duration_ms"`
 }
 
 type DSMResponse struct {
 	DSM        *dsm.DependencyStructureMatrix `json:"dsm"`
+	Cached     bool                           `json:"cached"`
 	DurationMs int64                          `json:"duration_ms"`
 }
 
 type CouplingResponse struct {
 	Coupling   *coupling.DependencyCoupling `json:"coupling"`
+	Cached     bool                         `json:"cached"`
 	DurationMs int64                        `json:"duration_ms"`
 }
 
@@ -77,12 +84,14 @@ type MetricsResponse struct {
 	Comments             *comments.CommentsMetrics    `json:"comments"`
 	CyclomaticComplexity ComplexityResult             `json:"cyclomatic_complexity"`
 	CognitiveComplexity  ComplexityResult             `json:"cognitive_complexity"`
+	Cached               bool                         `json:"cached"`
 	DurationMs           int64                        `json:"duration_ms"`
 }
 
 type VCSResponse struct {
 	VCS        *git.VCSAnalysisInfo `json:"vcs"`
 	Months     int                  `json:"months"`
+	Cached     bool                 `json:"cached"`
 	DurationMs int64                `json:"duration_ms"`
 }
 
@@ -96,14 +105,15 @@ type switchProjectRequest struct {
 }
 
 func New(initialPath string, orgPackages []string, distFS fs.FS) (*Server, error) {
-	var cache *trends.Cache
-	if dir, err := trends.DefaultCacheDir(); err == nil {
-		cache = trends.NewCache(dir)
+	var store *cache.Store
+	if dir, err := cache.DefaultDir(); err == nil {
+		store = cache.NewStore(dir)
 	}
 
 	s := &Server{
 		distFS:      distFS,
-		trendsCache: cache,
+		cacheStore:  store,
+		trendsCache: trends.NewCacheFromStore(store),
 		mux:         http.NewServeMux(),
 	}
 
@@ -195,6 +205,33 @@ func (s *Server) currentProjectSnapshot() *project.ProjectInfo {
 	}
 }
 
+type cacheContext struct {
+	projectKey    string
+	complexityKey string
+	sha           string
+	canRead       bool
+	canWrite      bool
+}
+
+func (s *Server) resolveCacheContext(ctx context.Context, proj *project.ProjectInfo, r *http.Request) cacheContext {
+	if s.cacheStore == nil || proj == nil {
+		return cacheContext{}
+	}
+	sha, isClean := cache.ResolveCleanCommit(ctx, proj.Path)
+	if !isClean {
+		return cacheContext{}
+	}
+	relPath := cache.ProjectSubdir(ctx, proj.Path)
+	refresh := strings.EqualFold(strings.TrimSpace(r.URL.Query().Get("refresh")), "true")
+	return cacheContext{
+		projectKey:    cache.ProjectKey(proj.Package, relPath, proj.OrganizationPackages),
+		complexityKey: cache.ProjectKey(proj.Package, relPath, nil),
+		sha:           sha,
+		canRead:       !refresh,
+		canWrite:      true,
+	}
+}
+
 func (s *Server) registerRoutes() {
 	s.mux.HandleFunc("GET /api/health", s.handleHealth)
 	s.mux.HandleFunc("GET /api/project", s.handleGetProject)
@@ -244,7 +281,7 @@ func (s *Server) handleSwitchProject(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, s.ProjectContext())
 }
 
-func (s *Server) handleGetInstability(w http.ResponseWriter, _ *http.Request) {
+func (s *Server) handleGetInstability(w http.ResponseWriter, r *http.Request) {
 	proj := s.currentProjectSnapshot()
 	if proj == nil {
 		writeError(w, http.StatusBadRequest, "no Go project is loaded")
@@ -252,6 +289,18 @@ func (s *Server) handleGetInstability(w http.ResponseWriter, _ *http.Request) {
 	}
 
 	start := time.Now()
+	cc := s.resolveCacheContext(r.Context(), proj, r)
+	if cc.canRead {
+		if cached, ok := s.cacheStore.GetInstability(cc.projectKey, cc.sha); ok {
+			writeJSON(w, http.StatusOK, InstabilityResponse{
+				Packages:   cached,
+				Cached:     true,
+				DurationMs: time.Since(start).Milliseconds(),
+			})
+			return
+		}
+	}
+
 	pkgs, err := instability.GetInstability(proj)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, fmt.Sprintf("calculate instability: %v", err))
@@ -261,13 +310,18 @@ func (s *Server) handleGetInstability(w http.ResponseWriter, _ *http.Request) {
 		pkgs = []*instability.PackageInstability{}
 	}
 
+	if cc.canWrite {
+		_ = s.cacheStore.PutInstability(cc.projectKey, cc.sha, pkgs)
+	}
+
 	writeJSON(w, http.StatusOK, InstabilityResponse{
 		Packages:   pkgs,
+		Cached:     false,
 		DurationMs: time.Since(start).Milliseconds(),
 	})
 }
 
-func (s *Server) handleGetDependencyGraph(w http.ResponseWriter, _ *http.Request) {
+func (s *Server) handleGetDependencyGraph(w http.ResponseWriter, r *http.Request) {
 	proj := s.currentProjectSnapshot()
 	if proj == nil {
 		writeError(w, http.StatusBadRequest, "no Go project is loaded")
@@ -275,6 +329,18 @@ func (s *Server) handleGetDependencyGraph(w http.ResponseWriter, _ *http.Request
 	}
 
 	start := time.Now()
+	cc := s.resolveCacheContext(r.Context(), proj, r)
+	if cc.canRead {
+		if cached, ok := s.cacheStore.GetDependencyGraph(cc.projectKey, cc.sha); ok {
+			writeJSON(w, http.StatusOK, DependencyGraphResponse{
+				Graph:      cached,
+				Cached:     true,
+				DurationMs: time.Since(start).Milliseconds(),
+			})
+			return
+		}
+	}
+
 	graph, err := dependency.GetDependencyGraph(proj, "ALL")
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, fmt.Sprintf("build dependency graph: %v", err))
@@ -300,13 +366,18 @@ func (s *Server) handleGetDependencyGraph(w http.ResponseWriter, _ *http.Request
 		graph.Relations = map[string][]string{}
 	}
 
+	if cc.canWrite {
+		_ = s.cacheStore.PutDependencyGraph(cc.projectKey, cc.sha, graph)
+	}
+
 	writeJSON(w, http.StatusOK, DependencyGraphResponse{
 		Graph:      graph,
+		Cached:     false,
 		DurationMs: time.Since(start).Milliseconds(),
 	})
 }
 
-func (s *Server) handleGetDSM(w http.ResponseWriter, _ *http.Request) {
+func (s *Server) handleGetDSM(w http.ResponseWriter, r *http.Request) {
 	proj := s.currentProjectSnapshot()
 	if proj == nil {
 		writeError(w, http.StatusBadRequest, "no Go project is loaded")
@@ -314,6 +385,18 @@ func (s *Server) handleGetDSM(w http.ResponseWriter, _ *http.Request) {
 	}
 
 	start := time.Now()
+	cc := s.resolveCacheContext(r.Context(), proj, r)
+	if cc.canRead {
+		if cached, ok := s.cacheStore.GetDSM(cc.projectKey, cc.sha); ok {
+			writeJSON(w, http.StatusOK, DSMResponse{
+				DSM:        cached,
+				Cached:     true,
+				DurationMs: time.Since(start).Milliseconds(),
+			})
+			return
+		}
+	}
+
 	matrix, err := dsm.GetDependencyStructureMatrix(proj)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, fmt.Sprintf("build DSM: %v", err))
@@ -327,8 +410,13 @@ func (s *Server) handleGetDSM(w http.ResponseWriter, _ *http.Request) {
 		matrix.Dependencies = [][]int64{}
 	}
 
+	if cc.canWrite {
+		_ = s.cacheStore.PutDSM(cc.projectKey, cc.sha, matrix)
+	}
+
 	writeJSON(w, http.StatusOK, DSMResponse{
 		DSM:        matrix,
+		Cached:     false,
 		DurationMs: time.Since(start).Milliseconds(),
 	})
 }
@@ -347,6 +435,18 @@ func (s *Server) handleGetCoupling(w http.ResponseWriter, r *http.Request) {
 	}
 
 	start := time.Now()
+	cc := s.resolveCacheContext(r.Context(), proj, r)
+	if cc.canRead {
+		if cached, ok := s.cacheStore.GetCoupling(cc.complexityKey, cc.sha, dep); ok {
+			writeJSON(w, http.StatusOK, CouplingResponse{
+				Coupling:   cached,
+				Cached:     true,
+				DurationMs: time.Since(start).Milliseconds(),
+			})
+			return
+		}
+	}
+
 	result, err := coupling.CalculateCoupling(proj, dep)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, fmt.Sprintf("calculate coupling: %v", err))
@@ -357,8 +457,13 @@ func (s *Server) handleGetCoupling(w http.ResponseWriter, r *http.Request) {
 		result.PackageDetails = []*coupling.PackageCoupling{}
 	}
 
+	if cc.canWrite {
+		_ = s.cacheStore.PutCoupling(cc.complexityKey, cc.sha, dep, result)
+	}
+
 	writeJSON(w, http.StatusOK, CouplingResponse{
 		Coupling:   result,
+		Cached:     false,
 		DurationMs: time.Since(start).Milliseconds(),
 	})
 }
@@ -371,78 +476,118 @@ func (s *Server) handleGetMetrics(w http.ResponseWriter, r *http.Request) {
 	}
 
 	start := time.Now()
+	cc := s.resolveCacheContext(r.Context(), proj, r)
 
 	var (
-		locRes      *loc.ProjectLOC
-		typesRes    *types.ProjectTypes
-		ifaceRes    *interfaces.InterfaceMetrics
-		commentsRes *comments.CommentsMetrics
-		cycloRes    ComplexityResult
-		cognitRes   ComplexityResult
+		baseMetrics *cache.MetricsBase
+		baseCached  bool
+		compReport  *complexity.Report
+		compCached  bool
 	)
+
+	if cc.canRead {
+		baseMetrics, baseCached = s.cacheStore.GetMetricsBase(cc.complexityKey, cc.sha)
+		compReport, compCached = s.cacheStore.GetComplexity(cc.complexityKey, cc.sha)
+	}
 
 	g, _ := errgroup.WithContext(r.Context())
 
-	g.Go(func() error {
-		res, err := loc.CountLoc(proj)
-		if err != nil {
-			return fmt.Errorf("count LOC: %w", err)
-		}
-		locRes = res
-		return nil
-	})
-
-	g.Go(func() error {
-		res, err := types.ResolveProjectTypes(proj)
-		if err != nil {
-			return fmt.Errorf("resolve project types: %w", err)
-		}
-		typesRes = res
-		return nil
-	})
-
-	g.Go(func() error {
-		res, err := interfaces.ResolveInterfaceMetrics(proj)
-		if err != nil {
-			return fmt.Errorf("resolve interface metrics: %w", err)
-		}
-		ifaceRes = res
-		return nil
-	})
-
-	g.Go(func() error {
-		res, err := comments.ResolveCommentsMetrics(proj)
-		if err != nil {
-			return fmt.Errorf("resolve comments metrics: %w", err)
-		}
-		commentsRes = res
-		return nil
-	})
-
-	g.Go(func() error {
-		compReport, err := complexity.Calculate(proj.Path, proj.Package, 5)
-		if err != nil {
-			cycloRes = ComplexityResult{Error: err.Error()}
-			cognitRes = ComplexityResult{Error: err.Error()}
+	if !baseCached {
+		var (
+			locRes      *loc.ProjectLOC
+			typesRes    *types.ProjectTypes
+			ifaceRes    *interfaces.InterfaceMetrics
+			commentsRes *comments.CommentsMetrics
+		)
+		var baseGroup errgroup.Group
+		baseGroup.Go(func() error {
+			res, err := loc.CountLoc(proj)
+			if err != nil {
+				return fmt.Errorf("count LOC: %w", err)
+			}
+			locRes = res
 			return nil
-		}
-		cycloRes = ComplexityResult{Data: &compReport.Cyclomatic}
-		cognitRes = ComplexityResult{Data: &compReport.Cognitive}
-		return nil
-	})
+		})
+		baseGroup.Go(func() error {
+			res, err := types.ResolveProjectTypes(proj)
+			if err != nil {
+				return fmt.Errorf("resolve project types: %w", err)
+			}
+			typesRes = res
+			return nil
+		})
+		baseGroup.Go(func() error {
+			res, err := interfaces.ResolveInterfaceMetrics(proj)
+			if err != nil {
+				return fmt.Errorf("resolve interface metrics: %w", err)
+			}
+			ifaceRes = res
+			return nil
+		})
+		baseGroup.Go(func() error {
+			res, err := comments.ResolveCommentsMetrics(proj)
+			if err != nil {
+				return fmt.Errorf("resolve comments metrics: %w", err)
+			}
+			commentsRes = res
+			return nil
+		})
+
+		g.Go(func() error {
+			if err := baseGroup.Wait(); err != nil {
+				return err
+			}
+			baseMetrics = &cache.MetricsBase{
+				LOC:        locRes,
+				Types:      typesRes,
+				Interfaces: ifaceRes,
+				Comments:   commentsRes,
+			}
+			if cc.canWrite {
+				_ = s.cacheStore.PutMetricsBase(cc.complexityKey, cc.sha, baseMetrics)
+			}
+			return nil
+		})
+	}
+
+	var compErr error
+	if !compCached {
+		g.Go(func() error {
+			res, err := complexity.Calculate(proj.Path, proj.Package, 5)
+			if err != nil {
+				compErr = err
+				return nil
+			}
+			compReport = res
+			if cc.canWrite {
+				_ = s.cacheStore.PutComplexity(cc.complexityKey, cc.sha, compReport)
+			}
+			return nil
+		})
+	}
 
 	if err := g.Wait(); err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
 
+	var cycloRes, cognitRes ComplexityResult
+	if compErr != nil {
+		cycloRes = ComplexityResult{Error: compErr.Error()}
+		cognitRes = ComplexityResult{Error: compErr.Error()}
+	} else if compReport != nil {
+		cycloRes = ComplexityResult{Data: &compReport.Cyclomatic}
+		cognitRes = ComplexityResult{Data: &compReport.Cognitive}
+	}
+
 	writeJSON(w, http.StatusOK, MetricsResponse{
-		LOC:                  locRes,
-		Types:                typesRes,
-		Interfaces:           ifaceRes,
-		Comments:             commentsRes,
+		LOC:                  baseMetrics.LOC,
+		Types:                baseMetrics.Types,
+		Interfaces:           baseMetrics.Interfaces,
+		Comments:             baseMetrics.Comments,
 		CyclomaticComplexity: cycloRes,
 		CognitiveComplexity:  cognitRes,
+		Cached:               baseCached && compCached,
 		DurationMs:           time.Since(start).Milliseconds(),
 	})
 }
@@ -464,6 +609,21 @@ func (s *Server) handleGetVCS(w http.ResponseWriter, r *http.Request) {
 		months = parsed
 	}
 
+	start := time.Now()
+	dayKey := time.Now().UTC().Format("2006-01-02")
+	cc := s.resolveCacheContext(r.Context(), proj, r)
+	if cc.canRead {
+		if cached, ok := s.cacheStore.GetVCS(cc.complexityKey, cc.sha, months, dayKey); ok {
+			writeJSON(w, http.StatusOK, VCSResponse{
+				VCS:        cached,
+				Months:     months,
+				Cached:     true,
+				DurationMs: time.Since(start).Milliseconds(),
+			})
+			return
+		}
+	}
+
 	var since time.Time
 	if months == 0 {
 		since = time.Date(1970, 1, 1, 0, 0, 0, 0, time.UTC)
@@ -471,7 +631,6 @@ func (s *Server) handleGetVCS(w http.ResponseWriter, r *http.Request) {
 		since = time.Now().AddDate(0, -months, 0)
 	}
 
-	start := time.Now()
 	vcsInfo, err := git.LoadRepositoryTeamCohesion(proj.Path, &since)
 	if err != nil {
 		writeError(w, http.StatusBadRequest, fmt.Sprintf("analyze Git repository: %v", err))
@@ -491,9 +650,14 @@ func (s *Server) handleGetVCS(w http.ResponseWriter, r *http.Request) {
 		vcsInfo.ModificationsInfo.FileModifications = []git.ModificationsInfo{}
 	}
 
+	if cc.canWrite {
+		_ = s.cacheStore.PutVCS(cc.complexityKey, cc.sha, months, dayKey, vcsInfo)
+	}
+
 	writeJSON(w, http.StatusOK, VCSResponse{
 		VCS:        vcsInfo,
 		Months:     months,
+		Cached:     false,
 		DurationMs: time.Since(start).Milliseconds(),
 	})
 }

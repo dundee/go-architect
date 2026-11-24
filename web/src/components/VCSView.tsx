@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   AlertCircle,
   Calendar,
@@ -92,10 +92,12 @@ export function VCSView({ project, refreshSignal }: VCSViewProps) {
   const [riskFilter, setRiskFilter] = useState<BusFactorRisk | 'all'>('all')
   const [searchQuery, setSearchQuery] = useState('')
 
-  const loadData = useCallback((targetMonths: number, signal?: AbortSignal) => {
+  const lastRefreshRef = useRef(refreshSignal)
+
+  const loadData = useCallback((targetMonths: number, signal?: AbortSignal, refresh?: boolean) => {
     setLoading(true)
     setError(null)
-    fetchVCS(targetMonths, signal)
+    fetchVCS(targetMonths, signal, refresh)
       .then((res) => {
         if (signal?.aborted) return
         setVcs(res.vcs)
@@ -114,7 +116,9 @@ export function VCSView({ project, refreshSignal }: VCSViewProps) {
 
   useEffect(() => {
     const controller = new AbortController()
-    loadData(months, controller.signal)
+    const isRefresh = lastRefreshRef.current !== refreshSignal
+    lastRefreshRef.current = refreshSignal
+    loadData(months, controller.signal, isRefresh)
     return () => controller.abort()
   }, [project.path, months, refreshSignal, loadData])
 

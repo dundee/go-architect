@@ -81,41 +81,57 @@ export function switchProjectPath(
 
 export function fetchInstability(
   signal?: AbortSignal,
+  refresh?: boolean,
 ): Promise<InstabilityResponse> {
-  return requestJson<InstabilityResponse>('/api/instability', { signal })
+  const qs = refresh ? '?refresh=true' : ''
+  return requestJson<InstabilityResponse>(`/api/instability${qs}`, { signal })
 }
 
 export function fetchDependencyGraph(
   signal?: AbortSignal,
+  refresh?: boolean,
 ): Promise<DependencyGraphResponse> {
-  return requestJson<DependencyGraphResponse>('/api/dependency-graph', {
+  const qs = refresh ? '?refresh=true' : ''
+  return requestJson<DependencyGraphResponse>(`/api/dependency-graph${qs}`, {
     signal,
   })
 }
 
-export function fetchDSM(signal?: AbortSignal): Promise<DSMResponse> {
-  return requestJson<DSMResponse>('/api/dsm', { signal })
+export function fetchDSM(
+  signal?: AbortSignal,
+  refresh?: boolean,
+): Promise<DSMResponse> {
+  const qs = refresh ? '?refresh=true' : ''
+  return requestJson<DSMResponse>(`/api/dsm${qs}`, { signal })
 }
 
 export function fetchCoupling(
   dependency: string,
   signal?: AbortSignal,
+  refresh?: boolean,
 ): Promise<CouplingResponse> {
   const params = new URLSearchParams({ dependency })
+  if (refresh) params.set('refresh', 'true')
   return requestJson<CouplingResponse>(`/api/coupling?${params.toString()}`, {
     signal,
   })
 }
 
-export function fetchMetrics(signal?: AbortSignal): Promise<MetricsResponse> {
-  return requestJson<MetricsResponse>('/api/metrics', { signal })
+export function fetchMetrics(
+  signal?: AbortSignal,
+  refresh?: boolean,
+): Promise<MetricsResponse> {
+  const qs = refresh ? '?refresh=true' : ''
+  return requestJson<MetricsResponse>(`/api/metrics${qs}`, { signal })
 }
 
 export function fetchVCS(
   months: number,
   signal?: AbortSignal,
+  refresh?: boolean,
 ): Promise<VCSResponse> {
   const params = new URLSearchParams({ months: String(months) })
+  if (refresh) params.set('refresh', 'true')
   return requestJson<VCSResponse>(`/api/vcs?${params.toString()}`, { signal })
 }
 

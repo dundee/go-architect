@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/dundee/go-architect/internal/cache"
 	"github.com/dundee/go-architect/internal/complexity"
 	"github.com/go-architect/go-architect-lib/instability"
 	"github.com/go-architect/go-architect-lib/metrics/comments"
@@ -26,14 +27,14 @@ type Options struct {
 	IncludeComplexity bool
 }
 
-func Analyze(ctx context.Context, proj *project.ProjectInfo, cache *Cache, opts Options) (*TrendsReport, error) {
-	return AnalyzeWithProgress(ctx, proj, cache, opts, nil)
+func Analyze(ctx context.Context, proj *project.ProjectInfo, trendCache *Cache, opts Options) (*TrendsReport, error) {
+	return AnalyzeWithProgress(ctx, proj, trendCache, opts, nil)
 }
 
 func AnalyzeWithProgress(
 	ctx context.Context,
 	proj *project.ProjectInfo,
-	cache *Cache,
+	trendCache *Cache,
 	opts Options,
 	onProgress func(ProgressEvent),
 ) (*TrendsReport, error) {
@@ -70,7 +71,10 @@ func AnalyzeWithProgress(
 		Total: total,
 	})
 
-	projectKey := proj.Package + "::" + relPath
+	// Base trend snapshot key (independent of orgPackages except Instability counts, which are internal-only).
+	baseProjectKey := cache.ProjectKey(proj.Package, relPath, nil)
+	complexityKey := cache.ProjectKey(proj.Package, relPath, nil)
+
 	report := &TrendsReport{
 		Mode:              opts.Mode,
 		Months:            opts.Months,
@@ -84,9 +88,16 @@ func AnalyzeWithProgress(
 		}
 
 		step := idx + 1
-		if cachedSnap, ok := cache.Get(projectKey, c.SHA); ok {
-			// If complexity is requested and missing from cached snapshot, upgrade it.
-			if opts.IncludeComplexity && (cachedSnap.Metrics.CyclomaticComplexityAvg == nil || cachedSnap.Metrics.CognitiveComplexityAvg == nil) {
+		cachedSnap, hasBase := trendCache.GetSnapshot(baseProjectKey, c.SHA)
+		if hasBase {
+			if c.Tag != "" && cachedSnap.Tag == "" {
+				cachedSnap.Tag = c.Tag
+			}
+
+			if !opts.IncludeComplexity {
+				cachedSnap.Cached = true
+				report.CachedCount++
+				report.Points = append(report.Points, *cachedSnap)
 				emit(ProgressEvent{
 					Type:      "progress",
 					Index:     step,
@@ -95,33 +106,64 @@ func AnalyzeWithProgress(
 					ShortSHA:  c.Short,
 					Message:   c.Message,
 					Tag:       c.Tag,
-					Status:    "computing",
+					Status:    "cached",
+					Snapshot:  cachedSnap,
 				})
-				upgraded, err := measureWithWorktree(ctx, gitRoot, relPath, proj.OrganizationPackages, c, true)
-				if err == nil {
-					_ = cache.Put(projectKey, *upgraded)
-					upgraded.Cached = false
-					report.ComputedCount++
-					report.Points = append(report.Points, *upgraded)
-					emit(ProgressEvent{
-						Type:      "progress",
-						Index:     step,
-						Total:     total,
-						CommitSHA: c.SHA,
-						ShortSHA:  c.Short,
-						Message:   c.Message,
-						Tag:       c.Tag,
-						Status:    "done",
-						Snapshot:  upgraded,
-					})
-					continue
-				}
+				continue
 			}
 
-			cachedSnap.Cached = true
-			if c.Tag != "" && cachedSnap.Tag == "" {
-				cachedSnap.Tag = c.Tag
+			if compReport, hasComp := trendCache.GetComplexity(complexityKey, c.SHA); hasComp {
+				applyComplexity(&cachedSnap.Metrics, compReport)
+				cachedSnap.Cached = true
+				report.CachedCount++
+				report.Points = append(report.Points, *cachedSnap)
+				emit(ProgressEvent{
+					Type:      "progress",
+					Index:     step,
+					Total:     total,
+					CommitSHA: c.SHA,
+					ShortSHA:  c.Short,
+					Message:   c.Message,
+					Tag:       c.Tag,
+					Status:    "cached",
+					Snapshot:  cachedSnap,
+				})
+				continue
 			}
+
+			// Base metrics are cached, only complexity needs computing in a worktree.
+			emit(ProgressEvent{
+				Type:      "progress",
+				Index:     step,
+				Total:     total,
+				CommitSHA: c.SHA,
+				ShortSHA:  c.Short,
+				Message:   c.Message,
+				Tag:       c.Tag,
+				Status:    "computing",
+			})
+			compReport, compErr := measureComplexityWithWorktree(ctx, gitRoot, relPath, proj.Package, c.SHA)
+			if compErr == nil && compReport != nil {
+				_ = trendCache.PutComplexity(complexityKey, c.SHA, compReport)
+				applyComplexity(&cachedSnap.Metrics, compReport)
+				cachedSnap.Cached = false
+				report.ComputedCount++
+				report.Points = append(report.Points, *cachedSnap)
+				emit(ProgressEvent{
+					Type:      "progress",
+					Index:     step,
+					Total:     total,
+					CommitSHA: c.SHA,
+					ShortSHA:  c.Short,
+					Message:   c.Message,
+					Tag:       c.Tag,
+					Status:    "done",
+					Snapshot:  cachedSnap,
+				})
+				continue
+			}
+			// Fallback to returning cached base snapshot if complexity failed.
+			cachedSnap.Cached = true
 			report.CachedCount++
 			report.Points = append(report.Points, *cachedSnap)
 			emit(ProgressEvent{
@@ -149,7 +191,7 @@ func AnalyzeWithProgress(
 			Status:    "computing",
 		})
 
-		snap, err := measureWithWorktree(ctx, gitRoot, relPath, proj.OrganizationPackages, c, opts.IncludeComplexity)
+		snap, compReport, err := measureWithWorktree(ctx, gitRoot, relPath, proj.OrganizationPackages, c, opts.IncludeComplexity)
 		if err != nil {
 			report.SkippedCount++
 			reason := fmt.Sprintf("%s: %v", c.Short, err)
@@ -170,7 +212,13 @@ func AnalyzeWithProgress(
 			continue
 		}
 
-		_ = cache.Put(projectKey, *snap)
+		// Store base trend snapshot and complexity in separate protobuf cache files.
+		_ = trendCache.PutSnapshot(baseProjectKey, *snap)
+		if compReport != nil {
+			_ = trendCache.PutComplexity(complexityKey, c.SHA, compReport)
+			applyComplexity(&snap.Metrics, compReport)
+		}
+
 		report.ComputedCount++
 		report.Points = append(report.Points, *snap)
 		emit(ProgressEvent{
@@ -188,6 +236,16 @@ func AnalyzeWithProgress(
 
 	report.DurationMs = time.Since(start).Milliseconds()
 	return report, nil
+}
+
+func applyComplexity(dst *SnapshotMetrics, report *complexity.Report) {
+	if report == nil {
+		return
+	}
+	cAvg := report.Cyclomatic.AverageComplexity
+	gAvg := report.Cognitive.AverageComplexity
+	dst.CyclomaticComplexityAvg = &cAvg
+	dst.CognitiveComplexityAvg = &gAvg
 }
 
 func resolveGitSubdir(ctx context.Context, projectPath string) (string, string, error) {
@@ -214,6 +272,42 @@ func resolveGitSubdir(ctx context.Context, projectPath string) (string, string, 
 	return gitRoot, rel, nil
 }
 
+func withTempWorktree(ctx context.Context, gitRoot, sha string, fn func(wtPath string) error) error {
+	tmpRoot, err := os.MkdirTemp("", "go-architect-wt-*")
+	if err != nil {
+		return fmt.Errorf("create temp dir: %w", err)
+	}
+	defer func() {
+		_ = os.RemoveAll(tmpRoot)
+	}()
+
+	wtPath := filepath.Join(tmpRoot, "wt")
+	cmd := exec.CommandContext(ctx, "git", "-C", gitRoot, "worktree", "add", "--detach", "--quiet", wtPath, sha)
+	if out, err := cmd.CombinedOutput(); err != nil {
+		return fmt.Errorf("git worktree add: %w (%s)", err, strings.TrimSpace(string(out)))
+	}
+	defer func() {
+		rmCmd := exec.Command("git", "-C", gitRoot, "worktree", "remove", "--force", wtPath)
+		_ = rmCmd.Run()
+	}()
+
+	return fn(wtPath)
+}
+
+func measureComplexityWithWorktree(ctx context.Context, gitRoot, relPath, mainPkg, sha string) (*complexity.Report, error) {
+	var report *complexity.Report
+	err := withTempWorktree(ctx, gitRoot, sha, func(wtPath string) error {
+		targetPath := filepath.Join(wtPath, relPath)
+		var calcErr error
+		report, calcErr = complexity.Calculate(targetPath, mainPkg, 5)
+		return calcErr
+	})
+	if err != nil {
+		return nil, err
+	}
+	return report, nil
+}
+
 func measureWithWorktree(
 	ctx context.Context,
 	gitRoot string,
@@ -221,35 +315,26 @@ func measureWithWorktree(
 	orgPackages []string,
 	c sampledCommit,
 	includeComplexity bool,
-) (*CommitSnapshot, error) {
-	tmpRoot, err := os.MkdirTemp("", "go-architect-wt-*")
-	if err != nil {
-		return nil, fmt.Errorf("create temp dir: %w", err)
-	}
-	defer func() {
-		_ = os.RemoveAll(tmpRoot)
-	}()
+) (*CommitSnapshot, *complexity.Report, error) {
+	var (
+		metrics    SnapshotMetrics
+		compReport *complexity.Report
+	)
 
-	wtPath := filepath.Join(tmpRoot, "wt")
-	cmd := exec.CommandContext(ctx, "git", "-C", gitRoot, "worktree", "add", "--detach", "--quiet", wtPath, c.SHA)
-	if out, err := cmd.CombinedOutput(); err != nil {
-		return nil, fmt.Errorf("git worktree add: %w (%s)", err, strings.TrimSpace(string(out)))
-	}
-	defer func() {
-		rmCmd := exec.Command("git", "-C", gitRoot, "worktree", "remove", "--force", wtPath)
-		_ = rmCmd.Run()
-	}()
+	err := withTempWorktree(ctx, gitRoot, c.SHA, func(wtPath string) error {
+		targetPath := filepath.Join(wtPath, relPath)
+		proj, err := project.LoadProjectInfo(targetPath)
+		if err != nil {
+			return fmt.Errorf("load Go project: %w", err)
+		}
+		proj.OrganizationPackages = orgPackages
 
-	targetPath := filepath.Join(wtPath, relPath)
-	proj, err := project.LoadProjectInfo(targetPath)
+		var mErr error
+		metrics, compReport, mErr = measureDirectory(ctx, proj, includeComplexity)
+		return mErr
+	})
 	if err != nil {
-		return nil, fmt.Errorf("load Go project: %w", err)
-	}
-	proj.OrganizationPackages = orgPackages
-
-	metrics, err := measureDirectory(ctx, proj, includeComplexity)
-	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	return &CommitSnapshot{
@@ -260,18 +345,17 @@ func measureWithWorktree(
 		Tag:       c.Tag,
 		Metrics:   metrics,
 		Cached:    false,
-	}, nil
+	}, compReport, nil
 }
 
-func measureDirectory(ctx context.Context, proj *project.ProjectInfo, includeComplexity bool) (SnapshotMetrics, error) {
+func measureDirectory(ctx context.Context, proj *project.ProjectInfo, includeComplexity bool) (SnapshotMetrics, *complexity.Report, error) {
 	var (
 		locRes      *loc.ProjectLOC
 		typesRes    *types.ProjectTypes
 		ifaceRes    *interfaces.InterfaceMetrics
 		commentsRes *comments.CommentsMetrics
 		instabRes   []*instability.PackageInstability
-		cycloAvg    *float64
-		cognitAvg   *float64
+		compReport  *complexity.Report
 	)
 
 	g, _ := errgroup.WithContext(ctx)
@@ -323,20 +407,17 @@ func measureDirectory(ctx context.Context, proj *project.ProjectInfo, includeCom
 
 	if includeComplexity {
 		g.Go(func() error {
-			compReport, err := complexity.Calculate(proj.Path, proj.Package, 5)
+			res, err := complexity.Calculate(proj.Path, proj.Package, 5)
 			if err != nil {
 				return nil
 			}
-			cAvg := compReport.Cyclomatic.AverageComplexity
-			gAvg := compReport.Cognitive.AverageComplexity
-			cycloAvg = &cAvg
-			cognitAvg = &gAvg
+			compReport = res
 			return nil
 		})
 	}
 
 	if err := g.Wait(); err != nil {
-		return SnapshotMetrics{}, err
+		return SnapshotMetrics{}, nil, err
 	}
 
 	var distanceSum float64
@@ -358,20 +439,18 @@ func measureDirectory(ctx context.Context, proj *project.ProjectInfo, includeCom
 	}
 
 	return SnapshotMetrics{
-		LOC:                     locRes.Total,
-		Packages:                typesRes.Packages,
-		SourceFiles:             typesRes.SourceFiles,
-		Structs:                 typesRes.Structs,
-		Interfaces:              typesRes.Interfaces,
-		Functions:               typesRes.Functions,
-		Methods:                 typesRes.Methods,
-		CommentsTotalLines:      commentsRes.TotalLines,
-		CommentsRatio:           commentsRes.CommentsRatio,
-		InterfaceAvgMethods:     ifaceRes.AverageMethods,
-		AvgDistance:             avgDistance,
-		ZoneOfPainCount:         painCount,
-		ZoneOfUselessnessCount:  uselessCount,
-		CyclomaticComplexityAvg: cycloAvg,
-		CognitiveComplexityAvg:  cognitAvg,
-	}, nil
+		LOC:                    locRes.Total,
+		Packages:               typesRes.Packages,
+		SourceFiles:            typesRes.SourceFiles,
+		Structs:                typesRes.Structs,
+		Interfaces:             typesRes.Interfaces,
+		Functions:              typesRes.Functions,
+		Methods:                typesRes.Methods,
+		CommentsTotalLines:     commentsRes.TotalLines,
+		CommentsRatio:          commentsRes.CommentsRatio,
+		InterfaceAvgMethods:    ifaceRes.AverageMethods,
+		AvgDistance:            avgDistance,
+		ZoneOfPainCount:        painCount,
+		ZoneOfUselessnessCount: uselessCount,
+	}, compReport, nil
 }

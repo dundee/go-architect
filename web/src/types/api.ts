@@ -31,6 +31,7 @@ export interface PackageInstability {
 
 export interface InstabilityResponse {
   packages: PackageInstability[]
+  cached?: boolean
   duration_ms: number
 }
 
@@ -45,6 +46,7 @@ export interface ModuleDependencyGraph {
 
 export interface DependencyGraphResponse {
   graph: ModuleDependencyGraph
+  cached?: boolean
   duration_ms: number
 }
 
@@ -56,6 +58,7 @@ export interface DependencyStructureMatrix {
 
 export interface DSMResponse {
   dsm: DependencyStructureMatrix
+  cached?: boolean
   duration_ms: number
 }
 
@@ -87,6 +90,7 @@ export interface DependencyCoupling {
 
 export interface CouplingResponse {
   coupling: DependencyCoupling
+  cached?: boolean
   duration_ms: number
 }
 
@@ -175,6 +179,7 @@ export interface MetricsResponse {
   comments: CommentsMetrics
   cyclomatic_complexity: ComplexityResult
   cognitive_complexity: ComplexityResult
+  cached?: boolean
   duration_ms: number
 }
 
@@ -216,6 +221,7 @@ export interface VCSAnalysisInfo {
 export interface VCSResponse {
   vcs: VCSAnalysisInfo
   months: number
+  cached?: boolean
   duration_ms: number
 }
 
