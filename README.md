@@ -22,7 +22,7 @@ Go-Architect is a Software Architecture Analysis Tool for Go Projects. Run it fr
 
 ### Install with Go
 ```bash
-go install github.com/dundee/go-architect/cmd/web@latest
+go install github.com/dundee/go-architect/cmd/go-architect@latest
 ```
 
 ### Build from Source
@@ -35,19 +35,19 @@ make build
 ## Usage
 ```bash
 # Analyze the current directory and open the web UI
-go run ./cmd/web .
+go run ./cmd/go-architect .
 
 # Specify organization package prefixes and custom listen address
-go run ./cmd/web -path /path/to/repo -org github.com/my-org/ -addr 127.0.0.1:8080
+go run ./cmd/go-architect -path /path/to/repo -org github.com/my-org/ -addr 127.0.0.1:8080
 
 # Start without auto-opening the browser
-go run ./cmd/web -open=false /path/to/repo
+go run ./cmd/go-architect -open=false /path/to/repo
 ```
 
 ## Development
 ```bash
 # 1. Start the Go API server
-go run ./cmd/web -open=false -path .
+go run ./cmd/go-architect -open=false -path .
 
 # 2. Start Vite dev server (proxies /api to 127.0.0.1:8080)
 cd web && npm install && npm run dev

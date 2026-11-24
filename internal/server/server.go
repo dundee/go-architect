@@ -14,6 +14,9 @@ import (
 	"sync"
 	"time"
 
+	"github.com/dundee/go-architect/backend/git"
+	"github.com/dundee/go-architect/internal/complexity"
+	"github.com/dundee/go-architect/internal/trends"
 	"github.com/go-architect/go-architect-lib/coupling"
 	"github.com/go-architect/go-architect-lib/dependency"
 	"github.com/go-architect/go-architect-lib/dsm"
@@ -24,9 +27,6 @@ import (
 	"github.com/go-architect/go-architect-lib/metrics/types"
 	"github.com/go-architect/go-architect-lib/project"
 	"github.com/go-architect/go-architect-lib/repository"
-	"github.com/go-architect/go-architect/backend/git"
-	"github.com/go-architect/go-architect/internal/complexity"
-	"github.com/go-architect/go-architect/internal/trends"
 	"golang.org/x/sync/errgroup"
 )
 

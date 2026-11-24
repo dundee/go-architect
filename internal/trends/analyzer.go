@@ -9,13 +9,13 @@ import (
 	"strings"
 	"time"
 
+	"github.com/dundee/go-architect/internal/complexity"
 	"github.com/go-architect/go-architect-lib/instability"
 	"github.com/go-architect/go-architect-lib/metrics/comments"
 	"github.com/go-architect/go-architect-lib/metrics/interfaces"
 	"github.com/go-architect/go-architect-lib/metrics/loc"
 	"github.com/go-architect/go-architect-lib/metrics/types"
 	"github.com/go-architect/go-architect-lib/project"
-	"github.com/go-architect/go-architect/internal/complexity"
 	"golang.org/x/sync/errgroup"
 )
 

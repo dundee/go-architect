@@ -1,4 +1,4 @@
-module github.com/go-architect/go-architect
+module github.com/dundee/go-architect
 
 go 1.24.0
 
