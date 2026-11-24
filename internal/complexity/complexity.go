@@ -109,8 +109,8 @@ func Calculate(projectPath, mainPackage string, topN int) (*Report, error) {
 	}
 
 	return &Report{
-		Cyclomatic: summarize(cycloDetails, cycloSum, topN),
-		Cognitive:  summarize(cognitDetails, cognitSum, topN),
+		Cyclomatic: Summarize(cycloDetails, cycloSum, topN),
+		Cognitive:  Summarize(cognitDetails, cognitSum, topN),
 	}, nil
 }
 
@@ -164,7 +164,7 @@ func resolvePackageName(projectRoot, filePath, mainPackage, astPkg string) strin
 	return path.Join(mainPackage, filepath.ToSlash(relDir))
 }
 
-func summarize(all []Detail, sum, topN int) Output {
+func Summarize(all []Detail, sum, topN int) Output {
 	if len(all) == 0 {
 		return Output{
 			AverageComplexity: 0,

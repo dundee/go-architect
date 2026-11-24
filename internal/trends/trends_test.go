@@ -200,3 +200,37 @@ func TestShallowCloneHandledGracefully(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, report.Points, 1)
 }
+
+func TestAnalyzeWorksWithoutExternalGoModDownloads(t *testing.T) {
+	dir := t.TempDir()
+	runGit(t, dir, nil, "init")
+	runGit(t, dir, nil, "config", "user.name", "Test User")
+	runGit(t, dir, nil, "config", "user.email", "test@example.com")
+
+	// Intentionally reference a nonexistent external dependency without go.sum.
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "go.mod"), []byte("module example.com/offline\n\ngo 1.24\n\nrequire example.com/does-not-exist v1.2.3\n"), 0o644))
+	require.NoError(t, os.MkdirAll(filepath.Join(dir, "pkg"), 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "pkg", "svc.go"), []byte("package pkg\n\n// Svc does work.\ntype Svc interface{ Do() }\nfunc Run(x int) int { if x > 0 { return 1 }; return 0 }\n"), 0o644))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "main.go"), []byte("package main\n\nimport \"example.com/offline/pkg\"\n\nfunc main() { _ = pkg.Run(1) }\n"), 0o644))
+	runGit(t, dir, nil, "add", ".")
+	runGit(t, dir, nil, "commit", "-m", "offline deps")
+
+	proj, err := project.LoadProjectInfo(dir)
+	require.NoError(t, err)
+
+	report, err := Analyze(context.Background(), proj, NewCache(t.TempDir()), Options{
+		Mode:              ModeBuckets,
+		Months:            12,
+		MaxPoints:         12,
+		IncludeComplexity: true,
+	})
+	require.NoError(t, err)
+	require.Len(t, report.Points, 1)
+	m := report.Points[0].Metrics
+	require.Equal(t, 2, m.Packages)
+	require.Equal(t, 2, m.SourceFiles)
+	require.Equal(t, 1, m.Interfaces)
+	require.Equal(t, 2, m.Functions)
+	require.NotNil(t, m.CyclomaticComplexityAvg)
+	require.NotNil(t, m.CognitiveComplexityAvg)
+}

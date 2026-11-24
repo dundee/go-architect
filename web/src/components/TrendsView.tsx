@@ -628,7 +628,7 @@ export function TrendsView({ project, refreshSignal }: TrendsViewProps) {
                           {p.metrics.loc.toLocaleString()}
                         </td>
                         <td className="px-3 py-2 text-right font-mono text-slate-700 tabular-nums">
-                          {(p.metrics.comments_ratio * 100).toFixed(1)}%
+                          {p.metrics.comments_ratio.toFixed(1)}%
                         </td>
                         <td className="px-3 py-2 text-right font-mono text-slate-700 tabular-nums">
                           {p.metrics.avg_distance.toFixed(2)}

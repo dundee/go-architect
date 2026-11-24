@@ -121,10 +121,8 @@ export function MetricsView({ project, refreshSignal }: MetricsViewProps) {
   if (!data) return null
 
   const mainPkg = data.types.project_package || project.package
-  const commentPct = (data.comments.ratio * 100).toFixed(1)
-  const filesWithCommentsPct = (
-    data.comments.files_with_comments_ratio * 100
-  ).toFixed(1)
+  const commentPct = data.comments.ratio.toFixed(1)
+  const filesWithCommentsPct = data.comments.files_with_comments_ratio.toFixed(1)
 
   return (
     <div className="flex flex-col gap-5">
