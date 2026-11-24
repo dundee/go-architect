@@ -1,10 +1,10 @@
 # Go-Architect
 <div align="center">
-<img src="./.github/logo.png" width="300" alt="Go-Architect" align=center />
+<img src="./.github/logo.png" width="300" alt="Go-Architect" align=right />
 </div>
 
 ---
-Go-Architect is a Software Architecture Analysis Tool for Go Projects. Run it from the command line against any local Go module to explore architectural metrics and visualizations in your browser.
+Go-Architect is a Software Architecture Analysis Tool for Go Projects. Run it from the command line against any local Go module to explore architectural metrics and visualizations in your web browser.
 
 ## Features
 - **Abstractness & Instability Chart**: Interactive scatter plot with Main Sequence, Zone of Pain, Zone of Uselessness, overlapping package grouping, tooltips, and synced table filtering.
