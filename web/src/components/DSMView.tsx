@@ -3,6 +3,9 @@ import {
   AlertCircle,
   AlertTriangle,
   ArrowRight,
+  ChevronDown,
+  ChevronUp,
+  HelpCircle,
   Loader2,
   RefreshCw,
 } from 'lucide-react'
@@ -44,6 +47,9 @@ export function DSMView({ project, refreshSignal }: DSMViewProps) {
   const [hideNonInternalCols, setHideNonInternalCols] = useState(false)
   const [hoveredCell, setHoveredCell] = useState<SelectedCell | null>(null)
   const [selectedCell, setSelectedCell] = useState<SelectedCell | null>(null)
+  const [showHelp, setShowHelp] = useState(false)
+
+  const helpRef = useRef<HTMLDivElement | null>(null)
 
   const orgPackages = useMemo(
     () => project.organization_packages ?? [],
@@ -427,6 +433,44 @@ export function DSMView({ project, refreshSignal }: DSMViewProps) {
           </tbody>
         </table>
       </div>
+
+      <div>
+        <button
+          type="button"
+          onClick={() => {
+            const next = !showHelp
+            setShowHelp(next)
+            if (next) {
+              setTimeout(() => {
+                helpRef.current?.scrollIntoView({
+                  behavior: 'smooth',
+                  block: 'nearest',
+                })
+              }, 40)
+            }
+          }}
+          aria-expanded={showHelp}
+          className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2 text-xs font-medium text-slate-700 shadow-2xs transition hover:bg-slate-50 hover:text-slate-900"
+        >
+          <HelpCircle className="h-4 w-4 text-indigo-600" />
+          <span>
+            {showHelp
+              ? 'Hide Dependency Structure Matrix guide'
+              : 'What does this matrix mean?'}
+          </span>
+          {showHelp ? (
+            <ChevronUp className="h-3.5 w-3.5 text-slate-400" />
+          ) : (
+            <ChevronDown className="h-3.5 w-3.5 text-slate-400" />
+          )}
+        </button>
+      </div>
+
+      {showHelp && (
+        <div ref={helpRef}>
+          <DSMGuide />
+        </div>
+      )}
     </div>
   )
 }
@@ -501,5 +545,130 @@ function CellInspector({
         </button>
       )}
     </div>
+  )
+}
+
+function DSMGuide() {
+  return (
+    <section
+      aria-label="How to read the Dependency Structure Matrix"
+      className="flex flex-col gap-5 rounded-xl border border-slate-200 bg-white p-5 shadow-xs"
+    >
+      <div className="border-b border-slate-100 pb-3">
+        <h2 className="text-sm font-bold text-slate-900">
+          Understanding the Dependency Structure Matrix (DSM)
+        </h2>
+        <p className="mt-1 text-xs text-slate-600">
+          A DSM lays out every package as both a row and a column so you can
+          spot layering violations, tight coupling, and circular dependencies at
+          a glance without the visual tangle of a large node-and-arrow graph.
+        </p>
+      </div>
+
+      {/* How to Read */}
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+        <div className="rounded-xl border border-slate-200/80 bg-slate-50/70 p-4">
+          <div className="text-xs font-semibold text-slate-900">
+            Reading cells: Column (Importer) → Row (Imported)
+          </div>
+          <p className="mt-1.5 text-xs leading-relaxed text-slate-600">
+            A non-empty cell at{' '}
+            <strong className="font-semibold text-slate-800">
+              row i, column j
+            </strong>{' '}
+            means package <strong className="font-mono">#j</strong> imports
+            package <strong className="font-mono">#i</strong>. Look{' '}
+            <strong className="font-semibold text-slate-800">
+              down a column
+            </strong>{' '}
+            to see all dependencies a package uses; look{' '}
+            <strong className="font-semibold text-slate-800">
+              across a row
+            </strong>{' '}
+            to see who depends on that package (its change blast radius).
+          </p>
+        </div>
+
+        <div className="rounded-xl border border-slate-200/80 bg-slate-50/70 p-4">
+          <div className="text-xs font-semibold text-slate-900">
+            Diagonal ordering &amp; architectural layering
+          </div>
+          <p className="mt-1.5 text-xs leading-relaxed text-slate-600">
+            Packages are ordered topologically from{' '}
+            <strong className="font-semibold text-slate-800">
+              top-level / leaf packages
+            </strong>{' '}
+            at the top-left down to{' '}
+            <strong className="font-semibold text-slate-800">
+              shared libraries &amp; stdlib
+            </strong>{' '}
+            at the bottom-right. In a clean layered design, dependencies sit{' '}
+            <strong className="font-semibold text-slate-800">
+              below the diagonal
+            </strong>
+            ; marks above the diagonal point against the dependency flow.
+          </p>
+        </div>
+      </div>
+
+      {/* Cell Types */}
+      <div>
+        <h3 className="mb-2.5 text-xs font-semibold tracking-wider text-slate-500 uppercase">
+          Cell Colors &amp; Controls
+        </h3>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="rounded-xl border border-indigo-200 bg-indigo-50/60 p-3">
+            <div className="flex items-center gap-2 text-xs font-semibold text-indigo-900">
+              <span className="h-3 w-3 rounded bg-indigo-200 ring-1 ring-indigo-400" />
+              Dependency
+            </div>
+            <p className="mt-1 text-[11px] leading-relaxed text-indigo-900/80">
+              Column package imports row package. Enable{' '}
+              <strong>Weighted Counts</strong> to see total symbol references (1
+              for the import + 1 per <code className="font-mono">pkg.Sym</code>{' '}
+              call).
+            </p>
+          </div>
+
+          <div className="rounded-xl border border-rose-200 bg-rose-50/60 p-3">
+            <div className="flex items-center gap-2 text-xs font-semibold text-rose-900">
+              <span className="h-3 w-3 rounded bg-rose-200 ring-1 ring-rose-400" />
+              Dependency Cycle
+            </div>
+            <p className="mt-1 text-[11px] leading-relaxed text-rose-800">
+              Mutual dependency where both{' '}
+              <span className="font-mono">A → B</span> and{' '}
+              <span className="font-mono">B → A</span> are non-zero (often via{' '}
+              <code className="font-mono">_test.go</code> or cross-layer
+              imports).
+            </p>
+          </div>
+
+          <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
+            <div className="text-xs font-semibold text-slate-900">
+              Aggregate by Package Layer
+            </div>
+            <p className="mt-1 text-[11px] leading-relaxed text-slate-600">
+              Collapses the matrix into 4×4 layers ({' '}
+              <span className="font-mono">Internal</span>,{' '}
+              <span className="font-mono">Org</span>,{' '}
+              <span className="font-mono">External</span>,{' '}
+              <span className="font-mono">Standard</span>) to spot illegal
+              cross-layer imports immediately.
+            </p>
+          </div>
+
+          <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
+            <div className="text-xs font-semibold text-slate-900">
+              Internal &amp; Org Only
+            </div>
+            <p className="mt-1 text-[11px] leading-relaxed text-slate-600">
+              Hides standard library and third-party packages so large Projects
+              remain easy to scan while refactoring internal boundaries.
+            </p>
+          </div>
+        </div>
+      </div>
+    </section>
   )
 }
