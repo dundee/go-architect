@@ -46,7 +46,7 @@ func TestServerEndpoints(t *testing.T) {
 		var resp ProjectContextResponse
 		require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &resp))
 		require.NotNil(t, resp.Project)
-		require.Equal(t, "github.com/go-architect/go-architect", resp.Project.Package)
+		require.Equal(t, "github.com/dundee/go-architect", resp.Project.Package)
 		require.Equal(t, []string{"github.com/go-architect/go-architect-lib"}, resp.Project.OrganizationPackages)
 	})
 
@@ -70,7 +70,7 @@ func TestServerEndpoints(t *testing.T) {
 		var resp DependencyGraphResponse
 		require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &resp))
 		require.NotNil(t, resp.Graph)
-		require.Equal(t, "github.com/go-architect/go-architect", resp.Graph.Module)
+		require.Equal(t, "github.com/dundee/go-architect", resp.Graph.Module)
 		require.NotEmpty(t, resp.Graph.Internal)
 		require.NotEmpty(t, resp.Graph.Relations)
 	})

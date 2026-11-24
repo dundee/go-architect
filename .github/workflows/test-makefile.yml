@@ -1,4 +1,5 @@
 name: Test Makefile across platforms
+
 on:
   push:
     branches: [ main ]

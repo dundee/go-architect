@@ -7,13 +7,13 @@ web-build:
 	cd web && npm run build
 
 build:
-	go build -o go-architect ./cmd/go-architect
+	go build .
 
 install:
-	go install ./cmd/go-architect
+	go install .
 
 run:
-	go run ./cmd/go-architect -path .
+	go run . -path .
 
 test:
 	go test ./...
