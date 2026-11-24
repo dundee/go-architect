@@ -2,9 +2,14 @@ package git
 
 import (
 	"fmt"
-	"github.com/stretchr/testify/assert"
+	"os"
+	"os/exec"
+	"path/filepath"
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func Test_Prepare_Result(t *testing.T) {
@@ -189,4 +194,53 @@ func equalsVcsAnalysisInfo(t *testing.T, a *VCSAnalysisInfo, b *VCSAnalysisInfo)
 		return false
 	}
 	return true
+}
+
+func Test_LoadRepositoryTeamCohesion_NativeGit(t *testing.T) {
+	dir := t.TempDir()
+	run := func(env []string, args ...string) {
+		t.Helper()
+		cmd := exec.Command("git", append([]string{"-C", dir}, args...)...)
+		if env != nil {
+			cmd.Env = append(os.Environ(), env...)
+		}
+		out, err := cmd.CombinedOutput()
+		require.NoError(t, err, "git %v: %s", args, string(out))
+	}
+
+	run(nil, "init")
+	run(nil, "config", "user.name", "Alice")
+	run(nil, "config", "user.email", "alice@example.com")
+
+	require.NoError(t, os.MkdirAll(filepath.Join(dir, "pkg"), 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "pkg", "a.go"), []byte("package pkg\nfunc A() {}\n"), 0o644))
+	t1 := time.Now().AddDate(0, -1, 0).Format(time.RFC3339)
+	run([]string{"GIT_AUTHOR_DATE=" + t1, "GIT_COMMITTER_DATE=" + t1}, "add", ".")
+	run([]string{"GIT_AUTHOR_DATE=" + t1, "GIT_COMMITTER_DATE=" + t1}, "commit", "-m", "init")
+
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "pkg", "a.go"), []byte("package pkg\nfunc A() {}\nfunc B() {}\n"), 0o644))
+	t2 := time.Now().AddDate(0, 0, -5).Format(time.RFC3339)
+	run([]string{
+		"GIT_AUTHOR_NAME=Bob",
+		"GIT_AUTHOR_EMAIL=bob@example.com",
+		"GIT_AUTHOR_DATE=" + t2,
+		"GIT_COMMITTER_DATE=" + t2,
+	}, "add", ".")
+	run([]string{
+		"GIT_AUTHOR_NAME=Bob",
+		"GIT_AUTHOR_EMAIL=bob@example.com",
+		"GIT_AUTHOR_DATE=" + t2,
+		"GIT_COMMITTER_DATE=" + t2,
+	}, "commit", "-m", "add B")
+
+	since := time.Now().AddDate(0, -6, 0)
+	info, err := LoadRepositoryTeamCohesion(dir, &since)
+	require.NoError(t, err)
+	require.NotNil(t, info)
+	require.Equal(t, 2, info.AuthorsInfo.TotalAuthors)
+	require.Equal(t, 2, info.AuthorsInfo.TotalCommits)
+	require.Equal(t, 3, info.AuthorsInfo.TotalModifications)
+	require.Len(t, info.ModificationsInfo.FileModifications, 1)
+	require.Equal(t, 3, info.ModificationsInfo.FileModifications[0].TotalModifications)
+	require.Len(t, info.ModificationsInfo.FileModifications[0].AuthorsSummary, 2)
 }
