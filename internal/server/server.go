@@ -147,7 +147,7 @@ func (s *Server) LoadProject(rawPath string, orgPackages []string) error {
 	}
 	proj.OrganizationPackages = normalizeOrgPackages(orgPackages)
 
-	repo, err := repository.LoadRepositoryInfo(absPath)
+	repo, err := loadRepositoryInfo(absPath)
 	if err != nil {
 		// Non-git directories are still valid Go Projects.
 		repo = nil
