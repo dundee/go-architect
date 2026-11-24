@@ -6,7 +6,7 @@
 
 <p align="center">
   <a href="https://github.com/dundee/go-architect/actions/workflows/build.yml"><img src="https://github.com/dundee/go-architect/actions/workflows/build.yml/badge.svg" alt="CI" /></a>
-  <a href="https://go.dev/"><img src="https://img.shields.io/badge/Go-1.24+-00ADD8?logo=go&logoColor=white" alt="Go Version" /></a>
+  <a href="https://go.dev/"><img src="https://img.shields.io/badge/Go-1.27+-00ADD8?logo=go&logoColor=white" alt="Go Version" /></a>
   <a href="./LICENSE"><img src="https://img.shields.io/badge/License-MIT-blue.svg" alt="License: MIT" /></a>
 </p>
 
@@ -37,7 +37,7 @@ Go-Architect is an interactive Software Architecture Analysis Tool for Go Projec
 ## Installation
 
 ### Requirements
-- Go 1.24+
+- Go 1.27+
 
 ### Install with Go
 ```bash

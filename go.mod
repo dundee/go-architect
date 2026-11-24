@@ -1,6 +1,6 @@
 module github.com/dundee/go-architect
 
-go 1.24.0
+go 1.27.0
 
 require (
 	github.com/fzipp/gocyclo v0.6.0
