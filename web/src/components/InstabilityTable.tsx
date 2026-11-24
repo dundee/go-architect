@@ -253,7 +253,8 @@ export function InstabilityTable({
                 align="right"
               />
               <SortableTh
-                label="Abstractness"
+                label="Abstr."
+                title="Abstractness (A)"
                 field="abstractness"
                 sortField={sortField}
                 sortDirection={sortDirection}
@@ -261,7 +262,8 @@ export function InstabilityTable({
                 align="right"
               />
               <SortableTh
-                label="Instability"
+                label="Instab."
+                title="Instability (I)"
                 field="instability"
                 sortField={sortField}
                 sortDirection={sortDirection}
@@ -269,7 +271,8 @@ export function InstabilityTable({
                 align="right"
               />
               <SortableTh
-                label="Distance"
+                label="Dist."
+                title="Distance from Main Sequence (D)"
                 field="distance"
                 sortField={sortField}
                 sortDirection={sortDirection}
@@ -318,14 +321,14 @@ export function InstabilityTable({
                           : 'hover:bg-slate-50'
                     }`}
                   >
-                    <td className="max-w-[260px] px-3 py-2.5">
+                    <td className="min-w-[240px] px-3 py-2.5">
                       <div className="flex items-center gap-2">
                         {isSelectedGroup && (
                           <span className="h-2 w-2 shrink-0 rounded-full bg-indigo-600" />
                         )}
                         <div className="min-w-0">
                           <div
-                            className="truncate font-mono text-xs font-medium text-slate-900"
+                            className="font-mono text-xs font-medium break-words text-slate-900"
                             title={label.full}
                           >
                             {label.display}
@@ -337,7 +340,7 @@ export function InstabilityTable({
                         </div>
                       </div>
                     </td>
-                    <td className="px-3 py-2.5 whitespace-nowrap">
+                    <td className="px-2.5 py-2.5 whitespace-nowrap">
                       <span
                         className={`inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium ${zoneMeta.badgeClass}`}
                         title={zoneMeta.description}
@@ -345,19 +348,19 @@ export function InstabilityTable({
                         {zoneMeta.shortLabel}
                       </span>
                     </td>
-                    <td className="px-3 py-2.5 text-right font-mono text-slate-700 tabular-nums">
+                    <td className="px-2.5 py-2.5 text-right font-mono text-slate-700 tabular-nums">
                       {pkg.afferent_coupling}
                     </td>
-                    <td className="px-3 py-2.5 text-right font-mono text-slate-700 tabular-nums">
+                    <td className="px-2.5 py-2.5 text-right font-mono text-slate-700 tabular-nums">
                       {pkg.efferent_coupling}
                     </td>
-                    <td className="px-3 py-2.5 text-right font-mono text-slate-700 tabular-nums">
+                    <td className="px-2.5 py-2.5 text-right font-mono text-slate-700 tabular-nums">
                       {formatMetric(pkg.abstractness)}
                     </td>
-                    <td className="px-3 py-2.5 text-right font-mono text-slate-700 tabular-nums">
+                    <td className="px-2.5 py-2.5 text-right font-mono text-slate-700 tabular-nums">
                       {formatMetric(pkg.instability)}
                     </td>
-                    <td className="px-3 py-2.5 text-right font-mono font-semibold text-slate-900 tabular-nums">
+                    <td className="px-2.5 py-2.5 text-right font-mono font-semibold text-slate-900 tabular-nums">
                       {formatMetric(pkg.distance)}
                     </td>
                   </tr>
@@ -424,7 +427,7 @@ function SortableTh({
   return (
     <th
       title={title}
-      className={`px-3 py-2.5 ${align === 'right' ? 'text-right' : 'text-left'}`}
+      className={`px-2.5 py-2.5 ${align === 'right' ? 'text-right' : 'text-left'}`}
     >
       <button
         type="button"

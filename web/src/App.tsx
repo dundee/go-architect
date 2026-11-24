@@ -193,7 +193,7 @@ export function App() {
     <div className="min-h-screen bg-slate-50 text-slate-900">
       {/* Top Navbar */}
       <header className="sticky top-0 z-30 border-b border-slate-200 bg-white/90 backdrop-blur-md">
-        <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-3 px-4 py-3 sm:px-6">
+        <div className="mx-auto flex max-w-[1440px] flex-wrap items-center justify-between gap-3 px-4 py-3 sm:px-6">
           <div className="flex items-center gap-3">
             <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-indigo-600 text-white shadow-xs">
               <Compass className="h-5 w-5" />
@@ -278,7 +278,7 @@ export function App() {
         {/* Tool Tabs */}
         <nav
           aria-label="Analysis tools"
-          className="mx-auto flex max-w-7xl items-center gap-1 overflow-x-auto px-4 sm:px-6"
+          className="mx-auto flex max-w-[1440px] items-center gap-1 overflow-x-auto px-4 sm:px-6"
         >
           {TOOLS.map((tool) => {
             const Icon = tool.icon
@@ -311,7 +311,7 @@ export function App() {
       </header>
 
       {/* Main Content */}
-      <main className="mx-auto max-w-7xl px-4 py-6 sm:px-6">
+      <main className="mx-auto max-w-[1440px] px-4 py-6 sm:px-6">
         {loading ? (
           <div className="flex items-center justify-center gap-2.5 rounded-xl border border-slate-200 bg-white py-16 text-sm text-slate-600 shadow-xs">
             <Loader2 className="h-5 w-5 animate-spin text-indigo-600" />

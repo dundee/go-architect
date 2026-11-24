@@ -357,7 +357,7 @@ export function InstabilityChart({
         {/* Floating Tooltip */}
         {tooltipGroup && tooltipPosition && (
           <div
-            className="pointer-events-none absolute z-20 w-72 rounded-xl border border-slate-200 bg-slate-900/95 p-3 text-xs text-slate-100 shadow-xl backdrop-blur-xs transition-all duration-100"
+            className="pointer-events-none absolute z-20 w-80 rounded-xl border border-slate-200 bg-slate-900/95 p-3 text-xs text-slate-100 shadow-xl backdrop-blur-xs transition-all duration-100"
             style={{
               left: `${tooltipPosition.xPct}%`,
               top: `${tooltipPosition.yPct}%`,
@@ -410,9 +410,9 @@ export function InstabilityChart({
                     return (
                       <li
                         key={pkg.package_name}
-                        className="flex items-center justify-between gap-2 truncate text-[11px]"
+                        className="flex items-start justify-between gap-2 text-[11px]"
                       >
-                        <span className="truncate font-mono text-slate-100">
+                        <span className="font-mono break-all text-slate-100">
                           {label.display}
                         </span>
                         <span className="shrink-0 font-mono text-slate-400">
@@ -468,11 +468,11 @@ function TooltipSinglePackage({
   const label = formatPackageLabel(pkg.package_name, modulePath)
   return (
     <div>
-      <div className="truncate font-mono text-xs font-semibold text-white">
+      <div className="font-mono text-xs font-semibold break-all text-white">
         {label.display}
       </div>
       {label.display !== label.full && (
-        <div className="truncate font-mono text-[10px] text-slate-400">
+        <div className="font-mono text-[10px] break-all text-slate-400">
           {label.full}
         </div>
       )}
