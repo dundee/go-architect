@@ -13,10 +13,9 @@ import (
 )
 
 type Options struct {
-	Mode              SamplingMode
-	Months            int
-	MaxPoints         int
-	IncludeComplexity bool
+	Mode      SamplingMode
+	Months    int
+	MaxPoints int
 }
 
 func Analyze(ctx context.Context, proj *project.ProjectInfo, trendCache *Cache, opts Options) (*TrendsReport, error) {
@@ -75,10 +74,9 @@ func AnalyzeWithProgress(
 	complexityKey := cache.ProjectKey(proj.Package, relPath, nil)
 
 	report := &TrendsReport{
-		Mode:              opts.Mode,
-		Months:            opts.Months,
-		IncludeComplexity: opts.IncludeComplexity,
-		Points:            make([]CommitSnapshot, 0, total),
+		Mode:   opts.Mode,
+		Months: opts.Months,
+		Points: make([]CommitSnapshot, 0, total),
 	}
 
 	for idx, c := range commits {
@@ -91,24 +89,6 @@ func AnalyzeWithProgress(
 		if hasBase {
 			if c.Tag != "" && cachedSnap.Tag == "" {
 				cachedSnap.Tag = c.Tag
-			}
-
-			if !opts.IncludeComplexity {
-				cachedSnap.Cached = true
-				report.CachedCount++
-				report.Points = append(report.Points, *cachedSnap)
-				emit(ProgressEvent{
-					Type:      "progress",
-					Index:     step,
-					Total:     total,
-					CommitSHA: c.SHA,
-					ShortSHA:  c.Short,
-					Message:   c.Message,
-					Tag:       c.Tag,
-					Status:    "cached",
-					Snapshot:  cachedSnap,
-				})
-				continue
 			}
 
 			if compReport, hasComp := trendCache.GetComplexity(complexityKey, c.SHA); hasComp {
@@ -130,6 +110,7 @@ func AnalyzeWithProgress(
 				continue
 			}
 
+			// Base metrics cached, only complexity missing (e.g. legacy cache entry).
 			emit(ProgressEvent{
 				Type:      "progress",
 				Index:     step,
@@ -189,7 +170,7 @@ func AnalyzeWithProgress(
 			Status:    "computing",
 		})
 
-		snap, compReport, err := measureCommitFromTree(repo, relPrefix, c, opts.IncludeComplexity)
+		snap, compReport, err := measureCommitFromTree(repo, relPrefix, c, true)
 		if err != nil {
 			report.SkippedCount++
 			reason := fmt.Sprintf("%s: %v", c.Short, err)

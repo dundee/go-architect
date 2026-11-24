@@ -295,9 +295,9 @@ func TestServerCommitCaching(t *testing.T) {
 		require.True(t, meta.Cached, "expected cache hit on second request for %s", path)
 	}
 
-	// 3. Trends with include_complexity=true reuses HEAD's complexity_*.pb written by /api/metrics.
+	// 3. Trends reuses HEAD's complexity_*.pb written by /api/metrics.
 	recTrends := httptest.NewRecorder()
-	srv.Handler().ServeHTTP(recTrends, httptest.NewRequest(http.MethodGet, "/api/trends?mode=buckets&months=12&include_complexity=true", nil))
+	srv.Handler().ServeHTTP(recTrends, httptest.NewRequest(http.MethodGet, "/api/trends?mode=buckets&months=12", nil))
 	require.Equal(t, http.StatusOK, recTrends.Code)
 	require.Contains(t, recTrends.Body.String(), `"cyclomatic_complexity_avg"`)
 

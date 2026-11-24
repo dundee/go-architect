@@ -62,7 +62,6 @@ interface ProgressState {
 export function TrendsView({ project, refreshSignal }: TrendsViewProps) {
   const [mode, setMode] = useState<SamplingMode>('buckets')
   const [months, setMonths] = useState(12)
-  const [includeComplexity, setIncludeComplexity] = useState(false)
 
   const [report, setReport] = useState<TrendsReport | null>(null)
   const [livePoints, setLivePoints] = useState<CommitSnapshot[]>([])
@@ -84,7 +83,6 @@ export function TrendsView({ project, refreshSignal }: TrendsViewProps) {
         mode,
         months,
         limit: mode === 'tags' ? 20 : 12,
-        includeComplexity,
       },
       {
         onStart: (ev) => {
@@ -144,7 +142,7 @@ export function TrendsView({ project, refreshSignal }: TrendsViewProps) {
         },
       },
     )
-  }, [mode, months, includeComplexity])
+  }, [mode, months])
 
   useEffect(() => {
     const cleanup = startStream()
@@ -160,16 +158,6 @@ export function TrendsView({ project, refreshSignal }: TrendsViewProps) {
   const points = loading ? livePoints : (report?.points ?? livePoints)
   const first = points.length > 0 ? points[0] : null
   const latest = points.length > 0 ? points[points.length - 1] : null
-
-  const hasComplexityData = useMemo(
-    () =>
-      points.some(
-        (p) =>
-          p.metrics.cyclomatic_complexity_avg !== undefined ||
-          p.metrics.cognitive_complexity_avg !== undefined,
-      ),
-    [points],
-  )
 
   return (
     <div className="flex flex-col gap-5">
@@ -222,19 +210,6 @@ export function TrendsView({ project, refreshSignal }: TrendsViewProps) {
         </div>
 
         <div className="flex flex-wrap items-center gap-3">
-          <label
-            className="inline-flex cursor-pointer items-center gap-2 text-xs font-medium text-slate-700"
-            title="Opt-in: computes cyclomatic and cognitive complexity for uncached commits"
-          >
-            <input
-              type="checkbox"
-              checked={includeComplexity}
-              onChange={(e) => setIncludeComplexity(e.target.checked)}
-              className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
-            />
-            Include Complexity (opt-in)
-          </label>
-
           {report && (
             <span className="inline-flex items-center gap-1.5 text-[11px] text-slate-500">
               <Database className="h-3.5 w-3.5 text-slate-400" />
@@ -531,38 +506,31 @@ export function TrendsView({ project, refreshSignal }: TrendsViewProps) {
               ]}
             />
 
-            {includeComplexity &&
-              (hasComplexityData ? (
-                <TrendChartCard
-                  title="Average Complexity (Opt-in)"
-                  subtitle="Cyclomatic and Cognitive complexity averages"
-                  points={points}
-                  hoveredIdx={hoveredIdx}
-                  onHoverIdx={setHoveredIdx}
-                  series={[
-                    {
-                      id: 'cyclo',
-                      label: 'Cyclomatic Avg',
-                      color: '#d97706',
-                      getValue: (p) =>
-                        p.metrics.cyclomatic_complexity_avg ?? null,
-                      formatValue: (v) => v.toFixed(2),
-                    },
-                    {
-                      id: 'cognit',
-                      label: 'Cognitive Avg',
-                      color: '#7c3aed',
-                      getValue: (p) =>
-                        p.metrics.cognitive_complexity_avg ?? null,
-                      formatValue: (v) => v.toFixed(2),
-                    },
-                  ]}
-                />
-              ) : (
-                <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-xs text-amber-900">
-                  Complexity metrics are unavailable for the sampled commits.
-                </div>
-              ))}
+            <TrendChartCard
+              title="Average Complexity"
+              subtitle="Cyclomatic and Cognitive complexity averages"
+              points={points}
+              hoveredIdx={hoveredIdx}
+              onHoverIdx={setHoveredIdx}
+              series={[
+                {
+                  id: 'cyclo',
+                  label: 'Cyclomatic Avg',
+                  color: '#d97706',
+                  getValue: (p) =>
+                    p.metrics.cyclomatic_complexity_avg ?? null,
+                  formatValue: (v) => v.toFixed(2),
+                },
+                {
+                  id: 'cognit',
+                  label: 'Cognitive Avg',
+                  color: '#7c3aed',
+                  getValue: (p) =>
+                    p.metrics.cognitive_complexity_avg ?? null,
+                  formatValue: (v) => v.toFixed(2),
+                },
+              ]}
+            />
           </div>
 
           {/* Sampled Snapshots Table */}

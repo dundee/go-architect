@@ -38,15 +38,14 @@ type CommitSnapshot struct {
 }
 
 type TrendsReport struct {
-	Mode              SamplingMode     `json:"mode"`
-	Months            int              `json:"months"`
-	IncludeComplexity bool             `json:"include_complexity"`
-	Points            []CommitSnapshot `json:"points"`
-	CachedCount       int              `json:"cached_count"`
-	ComputedCount     int              `json:"computed_count"`
-	SkippedCount      int              `json:"skipped_count"`
-	SkippedReasons    []string         `json:"skipped_reasons,omitempty"`
-	DurationMs        int64            `json:"duration_ms"`
+	Mode           SamplingMode     `json:"mode"`
+	Months         int              `json:"months"`
+	Points         []CommitSnapshot `json:"points"`
+	CachedCount    int              `json:"cached_count"`
+	ComputedCount  int              `json:"computed_count"`
+	SkippedCount   int              `json:"skipped_count"`
+	SkippedReasons []string         `json:"skipped_reasons,omitempty"`
+	DurationMs     int64            `json:"duration_ms"`
 }
 
 type ProgressEvent struct {

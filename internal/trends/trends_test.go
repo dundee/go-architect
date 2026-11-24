@@ -115,12 +115,11 @@ func TestTrendsAnalyzeAndCache(t *testing.T) {
 	require.Equal(t, 0, report2.ComputedCount)
 	require.True(t, report2.Points[0].Cached)
 
-	// Tags mode includes v0.1.0 + HEAD (also verify opt-in complexity caches separately without rewriting trends_*.pb)
+	// Tags mode includes v0.1.0 + HEAD and verifies separate trends_*.pb and complexity_*.pb caches.
 	tagReport, err := Analyze(ctx, proj, cache, Options{
-		Mode:              ModeTags,
-		Months:            0,
-		MaxPoints:         12,
-		IncludeComplexity: true,
+		Mode:      ModeTags,
+		Months:    0,
+		MaxPoints: 12,
 	})
 	require.NoError(t, err)
 	require.Len(t, tagReport.Points, 2)
@@ -135,12 +134,11 @@ func TestTrendsAnalyzeAndCache(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, trendFiles, 2)
 
-	// Subsequent IncludeComplexity=true run hits both trends and complexity caches.
+	// Subsequent run hits both trends and complexity caches.
 	tagReportCached, err := Analyze(ctx, proj, cache, Options{
-		Mode:              ModeTags,
-		Months:            0,
-		MaxPoints:         12,
-		IncludeComplexity: true,
+		Mode:      ModeTags,
+		Months:    0,
+		MaxPoints: 12,
 	})
 	require.NoError(t, err)
 	require.Equal(t, 2, tagReportCached.CachedCount)
@@ -219,10 +217,9 @@ func TestAnalyzeWorksWithoutExternalGoModDownloads(t *testing.T) {
 	require.NoError(t, err)
 
 	report, err := Analyze(context.Background(), proj, NewCache(t.TempDir()), Options{
-		Mode:              ModeBuckets,
-		Months:            12,
-		MaxPoints:         12,
-		IncludeComplexity: true,
+		Mode:      ModeBuckets,
+		Months:    12,
+		MaxPoints: 12,
 	})
 	require.NoError(t, err)
 	require.Len(t, report.Points, 1)

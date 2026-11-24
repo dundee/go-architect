@@ -632,13 +632,10 @@ func parseTrendsOptions(r *http.Request) (trends.Options, error) {
 		maxPoints = parsed
 	}
 
-	includeComplexity := strings.EqualFold(strings.TrimSpace(r.URL.Query().Get("include_complexity")), "true")
-
 	return trends.Options{
-		Mode:              mode,
-		Months:            months,
-		MaxPoints:         maxPoints,
-		IncludeComplexity: includeComplexity,
+		Mode:      mode,
+		Months:    months,
+		MaxPoints: maxPoints,
 	}, nil
 }
 

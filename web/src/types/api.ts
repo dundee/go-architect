@@ -258,7 +258,6 @@ export interface CommitSnapshot {
 export interface TrendsReport {
   mode: SamplingMode
   months: number
-  include_complexity: boolean
   points: CommitSnapshot[]
   cached_count: number
   computed_count: number

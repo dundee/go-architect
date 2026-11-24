@@ -140,7 +140,6 @@ export function fetchTrends(
     mode: SamplingMode
     months: number
     limit?: number
-    includeComplexity?: boolean
   },
   signal?: AbortSignal,
 ): Promise<TrendsReport> {
@@ -148,7 +147,6 @@ export function fetchTrends(
     mode: options.mode,
     months: String(options.months),
     limit: String(options.limit ?? 12),
-    include_complexity: String(Boolean(options.includeComplexity)),
   })
   return requestJson<TrendsReport>(`/api/trends?${params.toString()}`, {
     signal,
@@ -160,7 +158,6 @@ export function subscribeTrendsStream(
     mode: SamplingMode
     months: number
     limit?: number
-    includeComplexity?: boolean
   },
   handlers: {
     onStart?: (ev: TrendsProgressEvent) => void
@@ -173,7 +170,6 @@ export function subscribeTrendsStream(
     mode: options.mode,
     months: String(options.months),
     limit: String(options.limit ?? 12),
-    include_complexity: String(Boolean(options.includeComplexity)),
   })
 
   const es = new EventSource(`/api/trends/stream?${params.toString()}`)
