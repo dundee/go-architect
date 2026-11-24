@@ -1,6 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   AlertCircle,
+  ChevronDown,
+  ChevronUp,
+  HelpCircle,
   Loader2,
   Package,
   RefreshCw,
@@ -39,6 +42,9 @@ export function InstabilityView({
     null,
   )
   const [hoveredKey, setHoveredKey] = useState<string | null>(null)
+  const [showHelp, setShowHelp] = useState(false)
+
+  const helpRef = useRef<HTMLDivElement | null>(null)
 
   const lastRefreshRef = useRef(refreshSignal)
 
@@ -227,7 +233,7 @@ export function InstabilityView({
 
       {/* Main Chart + Table Split */}
       <div className="grid grid-cols-1 items-start gap-5 xl:grid-cols-12">
-        <div className="xl:col-span-5">
+        <div className="flex flex-col gap-3 xl:col-span-5">
           <InstabilityChart
             groups={pointGroups}
             modulePath={project.package}
@@ -236,6 +242,35 @@ export function InstabilityView({
             onSelectGroup={handleSelectGroup}
             onHoverGroup={setHoveredKey}
           />
+          <button
+            type="button"
+            onClick={() => {
+              const next = !showHelp
+              setShowHelp(next)
+              if (next) {
+                setTimeout(() => {
+                  helpRef.current?.scrollIntoView({
+                    behavior: 'smooth',
+                    block: 'nearest',
+                  })
+                }, 40)
+              }
+            }}
+            aria-expanded={showHelp}
+            className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-xs font-medium text-slate-700 shadow-2xs transition hover:bg-slate-50 hover:text-slate-900"
+          >
+            <HelpCircle className="h-4 w-4 text-indigo-600" />
+            <span>
+              {showHelp
+                ? 'Hide Abstractness & Instability guide'
+                : 'What does this chart mean?'}
+            </span>
+            {showHelp ? (
+              <ChevronUp className="h-3.5 w-3.5 text-slate-400" />
+            ) : (
+              <ChevronDown className="h-3.5 w-3.5 text-slate-400" />
+            )}
+          </button>
         </div>
         <div className="xl:col-span-7">
           <InstabilityTable
@@ -249,6 +284,12 @@ export function InstabilityView({
           />
         </div>
       </div>
+
+      {showHelp && (
+        <div ref={helpRef}>
+          <InstabilityGuide />
+        </div>
+      )}
     </div>
   )
 }
@@ -315,5 +356,169 @@ function InstabilitySkeleton() {
         <div className="h-[520px] animate-pulse rounded-xl border border-slate-200 bg-white xl:col-span-7" />
       </div>
     </div>
+  )
+}
+
+function InstabilityGuide() {
+  return (
+    <section
+      aria-label="How to read the Abstractness and Instability chart"
+      className="flex flex-col gap-5 rounded-xl border border-slate-200 bg-white p-5 shadow-xs"
+    >
+      <div className="border-b border-slate-100 pb-3">
+        <h2 className="text-sm font-bold text-slate-900">
+          Understanding Abstractness &amp; Instability
+        </h2>
+        <p className="mt-1 text-xs text-slate-600">
+          This chart helps check whether each Go package has the right level of
+          flexibility for how heavily the rest of your Project depends on it.
+        </p>
+      </div>
+
+      {/* Practical Meaning */}
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+        <div className="rounded-xl border border-slate-200/80 bg-slate-50/70 p-4">
+          <div className="text-xs font-semibold text-slate-900">
+            Stable packages (I ≈ 0.0) — Library-like code
+          </div>
+          <p className="mt-1.5 text-xs leading-relaxed text-slate-600">
+            A <strong className="font-semibold text-slate-800">stable</strong>{' '}
+            package has few or no internal dependencies of its own, while other
+            packages depend on it. Because changing it can break many callers,
+            library-like code should expose{' '}
+            <strong className="font-semibold text-slate-800">
+              interfaces and abstractions
+            </strong>{' '}
+            and have a reasonable number of dependants—otherwise concrete shared
+            code becomes rigid and unmaintainable.
+          </p>
+        </div>
+
+        <div className="rounded-xl border border-slate-200/80 bg-slate-50/70 p-4">
+          <div className="text-xs font-semibold text-slate-900">
+            Unstable packages (I ≈ 1.0) — Application &amp; leaf code
+          </div>
+          <p className="mt-1.5 text-xs leading-relaxed text-slate-600">
+            An{' '}
+            <strong className="font-semibold text-slate-800">unstable</strong>{' '}
+            package depends on other internal packages, while nothing else
+            depends on it (for example <code className="font-mono">cmd/</code>,
+            handlers, or wiring code). That&apos;s healthy: it is easy to
+            change without breaking downstream packages, so it can stay concrete
+            and simple without extra interfaces.
+          </p>
+        </div>
+      </div>
+
+      {/* Formulas */}
+      <div>
+        <h3 className="mb-2.5 text-xs font-semibold tracking-wider text-slate-500 uppercase">
+          Metrics &amp; Formulas
+        </h3>
+        <div className="grid grid-cols-1 gap-3 lg:grid-cols-3">
+          <div className="rounded-xl border border-slate-200 p-3.5">
+            <div className="text-xs font-semibold text-slate-900">
+              Instability (I)
+            </div>
+            <div className="mt-1.5 rounded-lg bg-slate-900 px-3 py-1.5 font-mono text-xs text-indigo-200">
+              I = Ce / (Ca + Ce)
+            </div>
+            <p className="mt-2 text-[11px] leading-relaxed text-slate-600">
+              <strong className="font-mono text-slate-800">Ce</strong> (outgoing):
+              internal packages this package imports.{' '}
+              <strong className="font-mono text-slate-800">Ca</strong> (incoming):
+              other internal packages importing this package. Ranges from{' '}
+              <span className="font-mono">0.0</span> (stable) to{' '}
+              <span className="font-mono">1.0</span> (unstable).
+            </p>
+          </div>
+
+          <div className="rounded-xl border border-slate-200 p-3.5">
+            <div className="text-xs font-semibold text-slate-900">
+              Abstractness (A)
+            </div>
+            <div className="mt-1.5 rounded-lg bg-slate-900 px-3 py-1.5 font-mono text-xs text-indigo-200">
+              A = Abstractions / (Abstractions + Implementations)
+            </div>
+            <p className="mt-2 text-[11px] leading-relaxed text-slate-600">
+              Counts structs and non-empty interfaces as{' '}
+              <strong className="text-slate-800">Abstractions</strong>, and
+              functions and methods as{' '}
+              <strong className="text-slate-800">Implementations</strong>. Ranges
+              from <span className="font-mono">0.0</span> (concrete) to{' '}
+              <span className="font-mono">1.0</span> (abstract).
+            </p>
+          </div>
+
+          <div className="rounded-xl border border-slate-200 p-3.5">
+            <div className="text-xs font-semibold text-slate-900">
+              Distance from Main Sequence (D)
+            </div>
+            <div className="mt-1.5 rounded-lg bg-slate-900 px-3 py-1.5 font-mono text-xs text-indigo-200">
+              D = |A + I - 1|
+            </div>
+            <p className="mt-2 text-[11px] leading-relaxed text-slate-600">
+              How far a package lies from the ideal{' '}
+              <span className="font-mono">A + I = 1</span> diagonal.{' '}
+              <span className="font-mono">0.0</span> is ideal; higher values
+              indicate rigidity or unused abstractions.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {/* Zones */}
+      <div>
+        <h3 className="mb-2.5 text-xs font-semibold tracking-wider text-slate-500 uppercase">
+          Reading the Zones
+        </h3>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="rounded-xl border border-emerald-200 bg-emerald-50/60 p-3">
+            <div className="flex items-center gap-2 text-xs font-semibold text-emerald-900">
+              <span className="h-2.5 w-2.5 rounded-full bg-emerald-600" />
+              Main Sequence (D ≤ 0.2)
+            </div>
+            <p className="mt-1 text-[11px] leading-relaxed text-emerald-800">
+              Balanced trade-off: heavily depended-on packages expose
+              abstractions, while leaf packages stay concrete.
+            </p>
+          </div>
+
+          <div className="rounded-xl border border-amber-200 bg-amber-50/60 p-3">
+            <div className="flex items-center gap-2 text-xs font-semibold text-amber-900">
+              <span className="h-2.5 w-2.5 rounded-full bg-amber-600" />
+              Buffer Zone (0.2 &lt; D &lt; 0.4)
+            </div>
+            <p className="mt-1 text-[11px] leading-relaxed text-amber-800">
+              Mild drift from the diagonal. Worth keeping an eye on if the
+              package continues gaining dependants.
+            </p>
+          </div>
+
+          <div className="rounded-xl border border-rose-200 bg-rose-50/60 p-3">
+            <div className="flex items-center gap-2 text-xs font-semibold text-rose-900">
+              <span className="h-2.5 w-2.5 rounded-full bg-rose-600" />
+              Zone of Pain (Bottom-Left)
+            </div>
+            <p className="mt-1 text-[11px] leading-relaxed text-rose-800">
+              Concrete code that many packages depend on without interfaces.
+              Hard to modify or mock—unless it&apos;s a small, rarely changing
+              utility package.
+            </p>
+          </div>
+
+          <div className="rounded-xl border border-orange-200 bg-orange-50/60 p-3">
+            <div className="flex items-center gap-2 text-xs font-semibold text-orange-900">
+              <span className="h-2.5 w-2.5 rounded-full bg-orange-600" />
+              Zone of Uselessness (Top-Right)
+            </div>
+            <p className="mt-1 text-[11px] leading-relaxed text-orange-800">
+              Lots of interfaces/abstractions with no incoming dependants—often
+              dead code or premature over-engineering.
+            </p>
+          </div>
+        </div>
+      </div>
+    </section>
   )
 }
