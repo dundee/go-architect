@@ -2,6 +2,7 @@ package trends
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -129,11 +130,55 @@ func TestTrendsAnalyzeAndCache(t *testing.T) {
 }
 
 func TestSampleByTagsSpansFullWindow(t *testing.T) {
-	repoRoot, err := filepath.Abs("../..")
+	repoDir := t.TempDir()
+	runGit(t, repoDir, nil, "init")
+	runGit(t, repoDir, nil, "config", "user.name", "Test User")
+	runGit(t, repoDir, nil, "config", "user.email", "test@example.com")
+
+	require.NoError(t, os.WriteFile(filepath.Join(repoDir, "go.mod"), []byte("module example.com/tags\n\ngo 1.24\n"), 0o644))
+	for i := 1; i <= 10; i++ {
+		ts := time.Date(2025, time.Month(i), 1, 10, 0, 0, 0, time.UTC).Format(time.RFC3339)
+		env := []string{"GIT_AUTHOR_DATE=" + ts, "GIT_COMMITTER_DATE=" + ts}
+		require.NoError(t, os.WriteFile(filepath.Join(repoDir, "main.go"), []byte("package main\nfunc main() {}\n"), 0o644))
+		runGit(t, repoDir, env, "add", ".")
+		runGit(t, repoDir, env, "commit", "--allow-empty", "-m", "release")
+		runGit(t, repoDir, nil, "tag", fmt.Sprintf("v0.0.%d", i))
+	}
+
+	commits, err := sampleCommits(repoDir, ModeTags, 0, 5)
+	require.NoError(t, err)
+	require.Len(t, commits, 5)
+	require.Equal(t, "v0.0.1", commits[0].Tag)
+}
+
+func TestShallowCloneHandledGracefully(t *testing.T) {
+	origin := t.TempDir()
+	runGit(t, origin, nil, "init")
+	runGit(t, origin, nil, "config", "user.name", "Test User")
+	runGit(t, origin, nil, "config", "user.email", "test@example.com")
+
+	require.NoError(t, os.WriteFile(filepath.Join(origin, "go.mod"), []byte("module example.com/shallow\n\ngo 1.24\n"), 0o644))
+	require.NoError(t, os.WriteFile(filepath.Join(origin, "main.go"), []byte("package main\nfunc main() {}\n"), 0o644))
+	runGit(t, origin, nil, "add", ".")
+	runGit(t, origin, nil, "commit", "-m", "c1")
+
+	require.NoError(t, os.WriteFile(filepath.Join(origin, "main.go"), []byte("package main\nfunc main() { println(1) }\n"), 0o644))
+	runGit(t, origin, nil, "add", ".")
+	runGit(t, origin, nil, "commit", "-m", "c2")
+
+	shallow := filepath.Join(t.TempDir(), "clone")
+	cmd := exec.Command("git", "clone", "--depth=1", "file://"+origin, shallow)
+	out, err := cmd.CombinedOutput()
+	require.NoError(t, err, "shallow clone failed: %s", string(out))
+
+	proj, err := project.LoadProjectInfo(shallow)
 	require.NoError(t, err)
 
-	commits, err := sampleCommits(repoRoot, ModeTags, 0, 5)
+	report, err := Analyze(context.Background(), proj, NewCache(t.TempDir()), Options{
+		Mode:      ModeBuckets,
+		Months:    12,
+		MaxPoints: 12,
+	})
 	require.NoError(t, err)
-	require.GreaterOrEqual(t, len(commits), 5)
-	require.Equal(t, "v0.0.1", commits[0].Tag)
+	require.Len(t, report.Points, 1)
 }

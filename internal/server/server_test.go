@@ -5,9 +5,12 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"os/exec"
 	"path/filepath"
 	"testing"
 	"testing/fstest"
+	"time"
 
 	"github.com/stretchr/testify/require"
 )
@@ -19,6 +22,37 @@ func testDistFS() fstest.MapFS {
 			Data: []byte("console.log('ok')"),
 		},
 	}
+}
+
+func runGitTest(t *testing.T, dir string, env []string, args ...string) {
+	t.Helper()
+	cmd := exec.Command("git", append([]string{"-C", dir}, args...)...)
+	if env != nil {
+		cmd.Env = append(os.Environ(), env...)
+	}
+	out, err := cmd.CombinedOutput()
+	require.NoError(t, err, "git %v failed: %s", args, string(out))
+}
+
+func createTempGoGitRepo(t *testing.T) string {
+	t.Helper()
+	dir := t.TempDir()
+	runGitTest(t, dir, nil, "init")
+	runGitTest(t, dir, nil, "config", "user.name", "Test User")
+	runGitTest(t, dir, nil, "config", "user.email", "test@example.com")
+
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "go.mod"), []byte("module example.com/ci-test\n\ngo 1.24\n"), 0o644))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "main.go"), []byte("package main\nfunc main() {}\n"), 0o644))
+	t1 := time.Now().AddDate(0, -2, 0).Format(time.RFC3339)
+	runGitTest(t, dir, []string{"GIT_AUTHOR_DATE=" + t1, "GIT_COMMITTER_DATE=" + t1}, "add", ".")
+	runGitTest(t, dir, []string{"GIT_AUTHOR_DATE=" + t1, "GIT_COMMITTER_DATE=" + t1}, "commit", "-m", "initial commit")
+
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "util.go"), []byte("package main\nfunc add(a, b int) int { return a + b }\n"), 0o644))
+	t2 := time.Now().AddDate(0, -1, 0).Format(time.RFC3339)
+	runGitTest(t, dir, []string{"GIT_AUTHOR_DATE=" + t2, "GIT_COMMITTER_DATE=" + t2}, "add", ".")
+	runGitTest(t, dir, []string{"GIT_AUTHOR_DATE=" + t2, "GIT_COMMITTER_DATE=" + t2}, "commit", "-m", "add util")
+
+	return dir
 }
 
 func TestServerEndpoints(t *testing.T) {
@@ -127,38 +161,48 @@ func TestServerEndpoints(t *testing.T) {
 	})
 
 	t.Run("GET /api/vcs", func(t *testing.T) {
+		gitRepoDir := createTempGoGitRepo(t)
+		vcsSrv, err := New(gitRepoDir, nil, testDistFS())
+		require.NoError(t, err)
+
 		reqInvalid := httptest.NewRequest(http.MethodGet, "/api/vcs?months=-2", nil)
 		recInvalid := httptest.NewRecorder()
-		srv.Handler().ServeHTTP(recInvalid, reqInvalid)
+		vcsSrv.Handler().ServeHTTP(recInvalid, reqInvalid)
 		require.Equal(t, http.StatusBadRequest, recInvalid.Code)
 
 		req := httptest.NewRequest(http.MethodGet, "/api/vcs?months=12", nil)
 		rec := httptest.NewRecorder()
-		srv.Handler().ServeHTTP(rec, req)
+		vcsSrv.Handler().ServeHTTP(rec, req)
 
 		require.Equal(t, http.StatusOK, rec.Code)
 		var resp VCSResponse
 		require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &resp))
 		require.Equal(t, 12, resp.Months)
 		require.NotNil(t, resp.VCS)
+		require.Greater(t, resp.VCS.AuthorsInfo.TotalCommits, 0)
 		require.NotNil(t, resp.VCS.AuthorsInfo.AuthorDetails)
 	})
 
 	t.Run("GET /api/trends", func(t *testing.T) {
+		t.Setenv("XDG_CACHE_HOME", t.TempDir())
+		gitRepoDir := createTempGoGitRepo(t)
+		trendsSrv, err := New(gitRepoDir, nil, testDistFS())
+		require.NoError(t, err)
+
 		reqInvalid := httptest.NewRequest(http.MethodGet, "/api/trends?mode=invalid", nil)
 		recInvalid := httptest.NewRecorder()
-		srv.Handler().ServeHTTP(recInvalid, reqInvalid)
+		trendsSrv.Handler().ServeHTTP(recInvalid, reqInvalid)
 		require.Equal(t, http.StatusBadRequest, recInvalid.Code)
 
 		req := httptest.NewRequest(http.MethodGet, "/api/trends?mode=buckets&months=12&limit=3", nil)
 		rec := httptest.NewRecorder()
-		srv.Handler().ServeHTTP(rec, req)
+		trendsSrv.Handler().ServeHTTP(rec, req)
 		require.Equal(t, http.StatusOK, rec.Code)
 		require.Contains(t, rec.Body.String(), `"points"`)
 
 		reqStream := httptest.NewRequest(http.MethodGet, "/api/trends/stream?mode=buckets&months=12&limit=3", nil)
 		recStream := httptest.NewRecorder()
-		srv.Handler().ServeHTTP(recStream, reqStream)
+		trendsSrv.Handler().ServeHTTP(recStream, reqStream)
 		require.Equal(t, http.StatusOK, recStream.Code)
 		require.Contains(t, recStream.Header().Get("Content-Type"), "text/event-stream")
 		require.Contains(t, recStream.Body.String(), "event: start")

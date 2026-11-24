@@ -1,6 +1,7 @@
 package trends
 
 import (
+	"errors"
 	"fmt"
 	"sort"
 	"strings"
@@ -69,7 +70,7 @@ func sampleByBuckets(repo *git.Repository, headCommit *object.Commit, since *tim
 		all = append(all, c)
 		return nil
 	})
-	if err != nil {
+	if err != nil && !errors.Is(err, plumbing.ErrObjectNotFound) {
 		return nil, fmt.Errorf("iterate commits: %w", err)
 	}
 

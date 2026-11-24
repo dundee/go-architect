@@ -1,9 +1,11 @@
 package git
 
 import (
+	"errors"
 	stdlog "log"
 	"sort"
 
+	"github.com/go-git/go-git/v5/plumbing"
 	"github.com/go-git/go-git/v5/plumbing/object"
 )
 
@@ -75,7 +77,7 @@ func analyzeLog(log object.CommitIter) *LogDetails {
 
 		return nil
 	})
-	if err != nil {
+	if err != nil && !errors.Is(err, plumbing.ErrObjectNotFound) {
 		stdlog.Printf("Error analyzing log: %v", err)
 		return nil
 	}
