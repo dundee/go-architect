@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"github.com/dundee/go-architect/backend/git"
+	"github.com/dundee/go-architect/internal/arch"
 	"github.com/dundee/go-architect/internal/cache"
 	"github.com/dundee/go-architect/internal/complexity"
 	"github.com/dundee/go-architect/internal/metrics"
@@ -301,7 +302,7 @@ func (s *Server) handleGetInstability(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	pkgs, err := instability.GetInstability(proj)
+	pkgs, err := arch.GetInstability(proj)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, fmt.Sprintf("calculate instability: %v", err))
 		return
@@ -341,7 +342,7 @@ func (s *Server) handleGetDependencyGraph(w http.ResponseWriter, r *http.Request
 		}
 	}
 
-	graph, err := dependency.GetDependencyGraph(proj, "ALL")
+	graph, err := arch.GetDependencyGraph(proj)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, fmt.Sprintf("build dependency graph: %v", err))
 		return
@@ -397,7 +398,7 @@ func (s *Server) handleGetDSM(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	matrix, err := dsm.GetDependencyStructureMatrix(proj)
+	matrix, err := arch.GetDSM(proj)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, fmt.Sprintf("build DSM: %v", err))
 		return
@@ -447,7 +448,7 @@ func (s *Server) handleGetCoupling(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	result, err := coupling.CalculateCoupling(proj, dep)
+	result, err := arch.CalculateCoupling(proj, dep)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, fmt.Sprintf("calculate coupling: %v", err))
 		return
