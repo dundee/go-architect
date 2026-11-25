@@ -123,15 +123,7 @@ func measureCommitFromTree(
 	}
 
 	// Filter using go/build constraints completely in-memory.
-	buildCtx := build.Default
-	buildCtx.OpenFile = func(p string) (io.ReadCloser, error) {
-		clean := strings.TrimPrefix(path.Clean(p), "./")
-		data, ok := byPath[clean]
-		if !ok {
-			return nil, fmt.Errorf("file not found: %s", p)
-		}
-		return io.NopCloser(bytes.NewReader(data)), nil
-	}
+	buildCtx := newTreeBuildContext(byPath)
 
 	matched := make([]treeFile, 0, len(candidates))
 	for _, tf := range candidates {
@@ -152,6 +144,21 @@ func measureCommitFromTree(
 		Metrics:   metrics,
 		Cached:    false,
 	}, compReport, nil
+}
+
+func newTreeBuildContext(byPath map[string][]byte) build.Context {
+	buildCtx := build.Default
+	buildCtx.JoinPath = path.Join
+	buildCtx.OpenFile = func(p string) (io.ReadCloser, error) {
+		normalized := strings.ReplaceAll(p, "\\", "/")
+		clean := strings.TrimPrefix(path.Clean(normalized), "./")
+		data, ok := byPath[clean]
+		if !ok {
+			return nil, fmt.Errorf("file not found: %s", p)
+		}
+		return io.NopCloser(bytes.NewReader(data)), nil
+	}
+	return buildCtx
 }
 
 func measureComplexityFromTree(

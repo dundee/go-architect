@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -234,4 +235,34 @@ func TestAnalyzeWorksWithoutExternalGoModDownloads(t *testing.T) {
 	require.Greater(t, m.TestLOC, 0)
 	require.NotNil(t, m.CyclomaticComplexityAvg)
 	require.NotNil(t, m.CognitiveComplexityAvg)
+}
+
+func TestTreeBuildContextHandlesWindowsPaths(t *testing.T) {
+	byPath := map[string][]byte{
+		"main.go":     []byte("package main\nfunc main() {}\n"),
+		"pkg/svc.go":  []byte("package pkg\nfunc Run() {}\n"),
+		"pkg/skip.go": []byte("//go:build ignore\n\npackage pkg\n"),
+	}
+
+	buildCtx := newTreeBuildContext(byPath)
+
+	ok, err := buildCtx.MatchFile(".", "main.go")
+	require.NoError(t, err)
+	require.True(t, ok)
+
+	ok, err = buildCtx.MatchFile("pkg", "svc.go")
+	require.NoError(t, err)
+	require.True(t, ok)
+
+	ok, err = buildCtx.MatchFile("pkg", "skip.go")
+	require.NoError(t, err)
+	require.False(t, ok)
+
+	// Also verify OpenFile tolerates backslash-joined paths (as produced by Windows filepath.Join).
+	buildCtx.JoinPath = func(elem ...string) string {
+		return strings.Join(elem, "\\")
+	}
+	ok, err = buildCtx.MatchFile("pkg", "svc.go")
+	require.NoError(t, err)
+	require.True(t, ok)
 }
