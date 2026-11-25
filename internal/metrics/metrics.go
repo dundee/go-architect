@@ -264,12 +264,13 @@ func processFile(fw fileWork, opts Options) (fileMetrics, bool) {
 						}
 					case *ast.ValueSpec:
 						for _, ident := range s.Names {
-							if d.Tok == token.VAR {
+							switch d.Tok {
+							case token.VAR:
 								fm.counts.variables++
 								if isExported(ident) {
 									fm.counts.publicVariables++
 								}
-							} else if d.Tok == token.CONST {
+							case token.CONST:
 								fm.counts.constants++
 								if isExported(ident) {
 									fm.counts.publicConstants++
