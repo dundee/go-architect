@@ -18,6 +18,9 @@ message SnapshotMetricsProto {
   double avg_distance = 11;
   int32 zone_of_pain_count = 12;
   int32 zone_of_uselessness_count = 13;
+  int32 test_loc = 14;
+  int32 test_files = 15;
+  int32 test_functions = 16;
 }
 
 message CommitSnapshotProto {
@@ -169,6 +172,14 @@ message CommentsMetricsProto {
   double files_with_comments_ratio = 4;
 }
 
+message TestMetricsProto {
+  int32 loc = 1;
+  int32 files = 2;
+  int32 functions = 3;
+  double ratio = 4;
+  repeated FileLOCProto largest_files = 5;
+}
+
 message MetricsBaseCacheProto {
   int32 loc_total = 1;
   repeated PackageLOCProto loc_packages = 2;
@@ -176,6 +187,7 @@ message MetricsBaseCacheProto {
   ProjectTypesProto types = 4;
   InterfaceMetricsProto interfaces = 5;
   CommentsMetricsProto comments = 6;
+  TestMetricsProto tests = 7;
 }
 
 message AuthorInfoProto {

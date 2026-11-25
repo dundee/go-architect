@@ -60,6 +60,9 @@ func (c *Cache) GetSnapshot(projectKey, sha string) (*CommitSnapshot, bool) {
 			AvgDistance:            m.GetAvgDistance(),
 			ZoneOfPainCount:        int(m.GetZoneOfPainCount()),
 			ZoneOfUselessnessCount: int(m.GetZoneOfUselessnessCount()),
+			TestLOC:                int(m.GetTestLoc()),
+			TestFiles:              int(m.GetTestFiles()),
+			TestFunctions:          int(m.GetTestFunctions()),
 		},
 	}, true
 }
@@ -88,6 +91,9 @@ func (c *Cache) PutSnapshot(projectKey string, snap CommitSnapshot) error {
 			AvgDistance:            snap.Metrics.AvgDistance,
 			ZoneOfPainCount:        int32(snap.Metrics.ZoneOfPainCount),
 			ZoneOfUselessnessCount: int32(snap.Metrics.ZoneOfUselessnessCount),
+			TestLoc:                int32(snap.Metrics.TestLOC),
+			TestFiles:              int32(snap.Metrics.TestFiles),
+			TestFunctions:          int32(snap.Metrics.TestFunctions),
 		},
 	}
 	return c.store.PutProto("trends", fmt.Sprintf("%s@%s", projectKey, snap.CommitSHA), pb)

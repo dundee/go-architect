@@ -410,17 +410,24 @@ export function TrendsView({ project, refreshSignal }: TrendsViewProps) {
           {/* Trend Charts Grid */}
           <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
             <TrendChartCard
-              title="Code Size & Comments"
-              subtitle="Total Go LOC vs. comment lines"
+              title="Code Size &amp; Comments"
+              subtitle="Production Go LOC, Test LOC (*_test.go), and comment lines"
               points={points}
               hoveredIdx={hoveredIdx}
               onHoverIdx={setHoveredIdx}
               series={[
                 {
                   id: 'loc',
-                  label: 'LOC',
+                  label: 'Prod LOC',
                   color: '#4f46e5',
                   getValue: (p) => p.metrics.loc,
+                  formatValue: (v) => v.toLocaleString(),
+                },
+                {
+                  id: 'test_loc',
+                  label: 'Test LOC',
+                  color: '#0d9488',
+                  getValue: (p) => p.metrics.test_loc,
                   formatValue: (v) => v.toLocaleString(),
                 },
                 {
@@ -546,7 +553,8 @@ export function TrendsView({ project, refreshSignal }: TrendsViewProps) {
                     <th className="px-3 py-2">Commit</th>
                     <th className="px-3 py-2">Date</th>
                     <th className="px-3 py-2">Message</th>
-                    <th className="px-3 py-2 text-right">LOC</th>
+                    <th className="px-3 py-2 text-right">Prod LOC</th>
+                    <th className="px-3 py-2 text-right">Test LOC</th>
                     <th className="px-3 py-2 text-right">Comment %</th>
                     <th className="px-3 py-2 text-right">Avg D</th>
                     <th className="px-3 py-2 text-right">Pain</th>
@@ -588,6 +596,9 @@ export function TrendsView({ project, refreshSignal }: TrendsViewProps) {
                         </td>
                         <td className="px-3 py-2 text-right font-mono font-semibold text-slate-900 tabular-nums">
                           {p.metrics.loc.toLocaleString()}
+                        </td>
+                        <td className="px-3 py-2 text-right font-mono text-teal-700 tabular-nums">
+                          {p.metrics.test_loc.toLocaleString()}
                         </td>
                         <td className="px-3 py-2 text-right font-mono text-slate-700 tabular-nums">
                           {p.metrics.comments_ratio.toFixed(1)}%

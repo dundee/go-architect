@@ -43,6 +43,17 @@ func Add(a, b int) int {
 }
 `), 0o644))
 
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "sub", "helper_test.go"), []byte(`package sub
+
+import "testing"
+
+func TestAdd(t *testing.T) {
+	if Add(1, 2) != 3 {
+		t.Fatal("bad")
+	}
+}
+`), 0o644))
+
 	res, err := Calculate(dir, "example.com/fast", Options{
 		NeedBase:       true,
 		NeedComplexity: true,
@@ -54,7 +65,7 @@ func Add(a, b int) int {
 
 	require.Greater(t, res.Base.LOC.Total, 15)
 	require.Equal(t, 2, res.Base.Types.Packages)
-	require.Equal(t, 2, res.Base.Types.SourceFiles)
+	require.Equal(t, 2, res.Base.Types.SourceFiles) // excludes helper_test.go
 	require.Equal(t, 1, res.Base.Types.Structs)
 	require.Equal(t, 1, res.Base.Types.PublicStructs)
 	require.Equal(t, 1, res.Base.Types.Interfaces) // Helper has 0 methods
@@ -65,6 +76,14 @@ func Add(a, b int) int {
 	require.Equal(t, 1, res.Base.Types.Constants)
 	require.Equal(t, 1, res.Base.Types.Variables)
 	require.Equal(t, 0, res.Base.Types.PublicVariables)
+
+	require.NotNil(t, res.Base.Tests)
+	require.Equal(t, 1, res.Base.Tests.Files)
+	require.Equal(t, 1, res.Base.Tests.Functions)
+	require.Greater(t, res.Base.Tests.LOC, 5)
+	require.Greater(t, res.Base.Tests.Ratio, 0.0)
+	require.Len(t, res.Base.Tests.LargestFiles, 1)
+	require.Equal(t, "helper_test.go", res.Base.Tests.LargestFiles[0].File)
 
 	require.Equal(t, 1.0, res.Base.Interfaces.AverageMethods)
 	require.Len(t, res.Base.Interfaces.InterfaceMaxMethods, 1)

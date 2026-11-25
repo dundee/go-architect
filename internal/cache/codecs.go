@@ -17,11 +17,20 @@ import (
 	"github.com/go-architect/go-architect-lib/metrics/types"
 )
 
+type TestMetrics struct {
+	LOC          int           `json:"loc"`
+	Files        int           `json:"files"`
+	Functions    int           `json:"functions"`
+	Ratio        float64       `json:"ratio"`
+	LargestFiles []loc.FileLOC `json:"largest_files"`
+}
+
 type MetricsBase struct {
 	LOC        *loc.ProjectLOC
 	Types      *types.ProjectTypes
 	Interfaces *interfaces.InterfaceMetrics
 	Comments   *comments.CommentsMetrics
+	Tests      *TestMetrics
 }
 
 // --- Complexity (stored separately from trends & base metrics) ---
@@ -369,6 +378,27 @@ func (s *Store) GetMetricsBase(projectKey, sha string) (*MetricsBase, bool) {
 		commMetrics.FilesWithCommentsRatio = pbComm.GetFilesWithCommentsRatio()
 	}
 
+	testMetrics := &TestMetrics{
+		LargestFiles: []loc.FileLOC{},
+	}
+	if pbTests := pb.GetTests(); pbTests != nil {
+		largest := make([]loc.FileLOC, 0, len(pbTests.GetLargestFiles()))
+		for _, f := range pbTests.GetLargestFiles() {
+			largest = append(largest, loc.FileLOC{
+				Package: f.GetPackage(),
+				File:    f.GetFile(),
+				LOC:     int(f.GetLoc()),
+			})
+		}
+		testMetrics = &TestMetrics{
+			LOC:          int(pbTests.GetLoc()),
+			Files:        int(pbTests.GetFiles()),
+			Functions:    int(pbTests.GetFunctions()),
+			Ratio:        pbTests.GetRatio(),
+			LargestFiles: largest,
+		}
+	}
+
 	return &MetricsBase{
 		LOC: &loc.ProjectLOC{
 			Total:    int(pb.GetLocTotal()),
@@ -378,6 +408,7 @@ func (s *Store) GetMetricsBase(projectKey, sha string) (*MetricsBase, bool) {
 		Types:      &pt,
 		Interfaces: ifaceMetrics,
 		Comments:   commMetrics,
+		Tests:      testMetrics,
 	}, true
 }
 
@@ -451,8 +482,30 @@ func (s *Store) PutMetricsBase(projectKey, sha string, m *MetricsBase) error {
 			FilesWithComments:      int32(m.Comments.FilesWithComments),
 			FilesWithCommentsRatio: m.Comments.FilesWithCommentsRatio,
 		},
+		Tests: toTestMetricsProto(m.Tests),
 	}
 	return s.PutProto("metrics", fmt.Sprintf("%s@%s", projectKey, sha), pb)
+}
+
+func toTestMetricsProto(t *TestMetrics) *cachepb.TestMetricsProto {
+	if t == nil {
+		return nil
+	}
+	largest := make([]*cachepb.FileLOCProto, 0, len(t.LargestFiles))
+	for _, f := range t.LargestFiles {
+		largest = append(largest, &cachepb.FileLOCProto{
+			Package: f.Package,
+			File:    f.File,
+			Loc:     int32(f.LOC),
+		})
+	}
+	return &cachepb.TestMetricsProto{
+		Loc:          int32(t.LOC),
+		Files:        int32(t.Files),
+		Functions:    int32(t.Functions),
+		Ratio:        t.Ratio,
+		LargestFiles: largest,
+	}
 }
 
 func toInterfaceInfoProtos(items []interfaces.InterfaceInfo) []*cachepb.InterfaceInfoProto {

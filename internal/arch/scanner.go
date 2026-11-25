@@ -40,7 +40,7 @@ type fileTarget struct {
 	fileName string
 }
 
-func scanPackages(projectPath, mainPackage string, needSelectorWeights bool) ([]scannedPackage, error) {
+func scanPackages(projectPath, mainPackage string, needSelectorWeights, includeTests bool) ([]scannedPackage, error) {
 	absRoot, err := filepath.Abs(projectPath)
 	if err != nil {
 		return nil, fmt.Errorf("resolve project path: %w", err)
@@ -60,6 +60,9 @@ func scanPackages(projectPath, mainPackage string, needSelectorWeights bool) ([]
 			return nil
 		}
 		if !strings.HasSuffix(name, ".go") {
+			return nil
+		}
+		if !includeTests && strings.HasSuffix(name, "_test.go") {
 			return nil
 		}
 

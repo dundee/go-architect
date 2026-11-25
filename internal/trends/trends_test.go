@@ -210,6 +210,7 @@ func TestAnalyzeWorksWithoutExternalGoModDownloads(t *testing.T) {
 	require.NoError(t, os.MkdirAll(filepath.Join(dir, "pkg"), 0o755))
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "pkg", "svc.go"), []byte("package pkg\n\n// Svc does work.\ntype Svc interface{ Do() }\nfunc Run(x int) int { if x > 0 { return 1 }; return 0 }\n"), 0o644))
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "main.go"), []byte("package main\n\nimport \"example.com/offline/pkg\"\n\nfunc main() { _ = pkg.Run(1) }\n"), 0o644))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "main_test.go"), []byte("package main\n\nimport \"testing\"\n\nfunc TestMainHelper(t *testing.T) {}\n"), 0o644))
 	runGit(t, dir, nil, "add", ".")
 	runGit(t, dir, nil, "commit", "-m", "offline deps")
 
@@ -225,9 +226,12 @@ func TestAnalyzeWorksWithoutExternalGoModDownloads(t *testing.T) {
 	require.Len(t, report.Points, 1)
 	m := report.Points[0].Metrics
 	require.Equal(t, 2, m.Packages)
-	require.Equal(t, 2, m.SourceFiles)
+	require.Equal(t, 2, m.SourceFiles) // excludes main_test.go
 	require.Equal(t, 1, m.Interfaces)
 	require.Equal(t, 2, m.Functions)
+	require.Equal(t, 1, m.TestFiles)
+	require.Equal(t, 1, m.TestFunctions)
+	require.Greater(t, m.TestLOC, 0)
 	require.NotNil(t, m.CyclomaticComplexityAvg)
 	require.NotNil(t, m.CognitiveComplexityAvg)
 }

@@ -33,7 +33,9 @@ type treeFile struct {
 type parsedFileMetrics struct {
 	dir              string
 	pkgLabel         string
+	isTest           bool
 	loc              int
+	testFunctions    int
 	commentLines     int
 	structs          int
 	interfaces       int
@@ -241,6 +243,7 @@ func analyzeTreeFiles(files []treeFile, modPath string, includeComplexity bool) 
 
 	var (
 		totalLOC, sourceFiles                  int
+		testLOC, testFiles, testFunctions      int
 		structs, interfaces, functions, methods int
 		commentsTotal                          int
 		ifaceMethodSum, ifaceCount             int
@@ -248,10 +251,16 @@ func analyzeTreeFiles(files []treeFile, modPath string, includeComplexity bool) 
 		cycloSum, cognitSum                    int
 	)
 
-	// Collect all package names first so afferent/efferent only tracks real internal packages.
+	// Collect all package names first (excluding *_test.go-only packages) so afferent/efferent only tracks production packages.
 	var allParsed []parsedFileMetrics
 	for _, batch := range results {
 		for _, pf := range batch {
+			if pf.isTest {
+				testFiles++
+				testLOC += pf.loc
+				testFunctions += pf.testFunctions
+				continue
+			}
 			ensurePkg(pf.pkgLabel)
 			allParsed = append(allParsed, pf)
 		}
@@ -352,12 +361,21 @@ func analyzeTreeFiles(files []treeFile, modPath string, includeComplexity bool) 
 		AvgDistance:            avgDistance,
 		ZoneOfPainCount:        painCount,
 		ZoneOfUselessnessCount: uselessCount,
+		TestLOC:                testLOC,
+		TestFiles:              testFiles,
+		TestFunctions:          testFunctions,
 	}, compReport
 }
 
 func parseSingleTreeFile(tf treeFile, modPath string, includeComplexity bool) (parsedFileMetrics, bool) {
+	isTest := strings.HasSuffix(tf.name, "_test.go")
+	parseMode := parser.ParseComments
+	if isTest {
+		parseMode = 0
+	}
+
 	fset := token.NewFileSet()
-	astFile, err := parser.ParseFile(fset, tf.name, tf.content, parser.ParseComments)
+	astFile, err := parser.ParseFile(fset, tf.name, tf.content, parseMode)
 	if err != nil {
 		return parsedFileMetrics{}, false
 	}
@@ -370,7 +388,17 @@ func parseSingleTreeFile(tf treeFile, modPath string, includeComplexity bool) (p
 	var out parsedFileMetrics
 	out.dir = tf.dir
 	out.pkgLabel = pkgLabel
+	out.isTest = isTest
 	out.loc = countLinesBytes(tf.content)
+
+	if isTest {
+		for _, decl := range astFile.Decls {
+			if fn, ok := decl.(*ast.FuncDecl); ok && fn.Recv == nil && isTestFuncName(fn.Name.Name) {
+				out.testFunctions++
+			}
+		}
+		return out, true
+	}
 
 	for _, cg := range astFile.Comments {
 		out.commentLines += len(cg.List)
@@ -456,4 +484,11 @@ func countLinesBytes(data []byte) int {
 
 func round2(v float64) float64 {
 	return math.Round(v*100) / 100
+}
+
+func isTestFuncName(name string) bool {
+	return strings.HasPrefix(name, "Test") ||
+		strings.HasPrefix(name, "Benchmark") ||
+		strings.HasPrefix(name, "Fuzz") ||
+		strings.HasPrefix(name, "Example")
 }

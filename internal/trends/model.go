@@ -23,6 +23,9 @@ type SnapshotMetrics struct {
 	AvgDistance             float64  `json:"avg_distance"`
 	ZoneOfPainCount         int      `json:"zone_of_pain_count"`
 	ZoneOfUselessnessCount  int      `json:"zone_of_uselessness_count"`
+	TestLOC                 int      `json:"test_loc"`
+	TestFiles               int      `json:"test_files"`
+	TestFunctions           int      `json:"test_functions"`
 	CyclomaticComplexityAvg *float64 `json:"cyclomatic_complexity_avg,omitempty"`
 	CognitiveComplexityAvg  *float64 `json:"cognitive_complexity_avg,omitempty"`
 }

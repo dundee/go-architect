@@ -48,6 +48,7 @@ export function CouplingView({
   const [graphLoading, setGraphLoading] = useState(true)
 
   const [query, setQuery] = useState(initialDependency ?? '')
+  const [includeTests, setIncludeTests] = useState(false)
   const [dropdownOpen, setDropdownOpen] = useState(false)
 
   const [result, setResult] = useState<DependencyCoupling | null>(null)
@@ -91,13 +92,18 @@ export function CouplingView({
   }, [])
 
   const runAnalysis = useCallback(
-    (dep: string, signal?: AbortSignal, refresh?: boolean) => {
+    (
+      dep: string,
+      signal?: AbortSignal,
+      refresh?: boolean,
+      withTests = includeTests,
+    ) => {
       const normalized = dep.trim().toLowerCase()
       if (!normalized) return
       setLoading(true)
       setError(null)
       onDependencyChange(normalized)
-      fetchCoupling(normalized, signal, refresh)
+      fetchCoupling(normalized, signal, refresh, withTests)
         .then((res) => {
           if (signal?.aborted) return
           setResult(res.coupling)
@@ -113,7 +119,7 @@ export function CouplingView({
           if (!signal?.aborted) setLoading(false)
         })
     },
-    [onDependencyChange],
+    [onDependencyChange, includeTests],
   )
 
   useEffect(() => {
@@ -255,6 +261,27 @@ export function CouplingView({
             {loading && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
             Analyze Coupling
           </button>
+        </div>
+
+        <div className="mt-2.5 flex items-center">
+          <label
+            className="inline-flex cursor-pointer items-center gap-2 text-xs font-medium text-slate-600"
+            title="Include *_test.go files when scanning for coupling"
+          >
+            <input
+              type="checkbox"
+              checked={includeTests}
+              onChange={(e) => {
+                const next = e.target.checked
+                setIncludeTests(next)
+                if (result?.dependency || query.trim()) {
+                  runAnalysis(result?.dependency ?? query, undefined, false, next)
+                }
+              }}
+              className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+            />
+            Include <code className="font-mono">*_test.go</code> files
+          </label>
         </div>
       </form>
 

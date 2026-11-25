@@ -26,7 +26,7 @@ type couplingFileResult struct {
 	file    *coupling.FileCoupling
 }
 
-func CalculateCoupling(proj *project.ProjectInfo, dep string) (*coupling.DependencyCoupling, error) {
+func CalculateCoupling(proj *project.ProjectInfo, dep string, includeTests bool) (*coupling.DependencyCoupling, error) {
 	absRoot, err := filepath.Abs(proj.Path)
 	if err != nil {
 		return nil, fmt.Errorf("resolve project path: %w", err)
@@ -46,6 +46,9 @@ func CalculateCoupling(proj *project.ProjectInfo, dep string) (*coupling.Depende
 			return nil
 		}
 		if !strings.HasSuffix(name, ".go") {
+			return nil
+		}
+		if !includeTests && strings.HasSuffix(name, "_test.go") {
 			return nil
 		}
 

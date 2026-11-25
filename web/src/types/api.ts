@@ -172,11 +172,20 @@ export interface ComplexityResult {
   install_hint?: string
 }
 
+export interface TestMetrics {
+  loc: number
+  files: number
+  functions: number
+  ratio: number
+  largest_files: FileLOC[] | null
+}
+
 export interface MetricsResponse {
   loc: ProjectLOC
   types: ProjectTypes
   interfaces: InterfaceMetrics
   comments: CommentsMetrics
+  tests: TestMetrics | null
   cyclomatic_complexity: ComplexityResult
   cognitive_complexity: ComplexityResult
   cached?: boolean
@@ -241,6 +250,9 @@ export interface SnapshotMetrics {
   avg_distance: number
   zone_of_pain_count: number
   zone_of_uselessness_count: number
+  test_loc: number
+  test_files: number
+  test_functions: number
   cyclomatic_complexity_avg?: number
   cognitive_complexity_avg?: number
 }

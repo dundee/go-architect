@@ -51,6 +51,7 @@ type fileMetrics struct {
 	work          fileWork
 	loc           int
 	commentLines  int
+	testFunctions int
 	counts        typesCounts
 	ifaceInfos    []interfaces.InterfaceInfo
 	cycloDetails  []complexity.Detail
@@ -206,6 +207,16 @@ func processFile(fw fileWork, opts Options) (fileMetrics, bool) {
 
 	if opts.NeedBase {
 		fm.loc = countLinesBytes(data)
+		if fw.isTest {
+			for _, decl := range astFile.Decls {
+				fn, ok := decl.(*ast.FuncDecl)
+				if ok && fn.Recv == nil && isTestFuncName(fn.Name.Name) {
+					fm.testFunctions++
+				}
+			}
+			return fm, true
+		}
+
 		for _, cg := range astFile.Comments {
 			fm.commentLines += len(cg.List)
 		}
@@ -301,6 +312,7 @@ func processFile(fw fileWork, opts Options) (fileMetrics, bool) {
 func aggregateBase(mainPackage string, batches [][]fileMetrics) *cache.MetricsBase {
 	locByPkgMap := make(map[string]int)
 	locFiles := make([]loc.FileLOC, 0)
+	testFiles := make([]loc.FileLOC, 0)
 	pkgTypesMap := make(map[string]*types.PackageTypes)
 
 	var (
@@ -308,6 +320,9 @@ func aggregateBase(mainPackage string, batches [][]fileMetrics) *cache.MetricsBa
 		totalFiles        int
 		commentLines      int
 		filesWithComments int
+		testLOC           int
+		testFileCount     int
+		testFuncCount     int
 		allIfaces         []interfaces.InterfaceInfo
 		projTypes         types.ProjectTypes
 	)
@@ -315,6 +330,18 @@ func aggregateBase(mainPackage string, batches [][]fileMetrics) *cache.MetricsBa
 
 	for _, batch := range batches {
 		for _, fm := range batch {
+			if fm.work.isTest {
+				testFileCount++
+				testLOC += fm.loc
+				testFuncCount += fm.testFunctions
+				testFiles = append(testFiles, loc.FileLOC{
+					Package: fm.work.pkgPath,
+					File:    fm.work.fileName,
+					LOC:     fm.loc,
+				})
+				continue
+			}
+
 			totalFiles++
 			totalLOC += fm.loc
 			commentLines += fm.commentLines
@@ -381,12 +408,26 @@ func aggregateBase(mainPackage string, batches [][]fileMetrics) *cache.MetricsBa
 
 	ifaceMetrics := buildInterfaceMetrics(allIfaces)
 
-	var commentRatio, filesCommentRatio float64
+	var commentRatio, filesCommentRatio, testRatio float64
 	if totalLOC > 0 {
 		commentRatio = round2(100 * float64(commentLines) / float64(totalLOC))
+		testRatio = round2(float64(testLOC) / float64(totalLOC))
 	}
 	if totalFiles > 0 {
 		filesCommentRatio = round2(100 * float64(filesWithComments) / float64(totalFiles))
+	}
+
+	sort.Slice(testFiles, func(i, j int) bool {
+		if testFiles[i].LOC != testFiles[j].LOC {
+			return testFiles[i].LOC > testFiles[j].LOC
+		}
+		if testFiles[i].Package != testFiles[j].Package {
+			return testFiles[i].Package < testFiles[j].Package
+		}
+		return testFiles[i].File < testFiles[j].File
+	})
+	if len(testFiles) > 5 {
+		testFiles = testFiles[:5]
 	}
 
 	return &cache.MetricsBase{
@@ -403,7 +444,21 @@ func aggregateBase(mainPackage string, batches [][]fileMetrics) *cache.MetricsBa
 			FilesWithComments:      filesWithComments,
 			FilesWithCommentsRatio: filesCommentRatio,
 		},
+		Tests: &cache.TestMetrics{
+			LOC:          testLOC,
+			Files:        testFileCount,
+			Functions:    testFuncCount,
+			Ratio:        testRatio,
+			LargestFiles: testFiles,
+		},
 	}
+}
+
+func isTestFuncName(name string) bool {
+	return strings.HasPrefix(name, "Test") ||
+		strings.HasPrefix(name, "Benchmark") ||
+		strings.HasPrefix(name, "Fuzz") ||
+		strings.HasPrefix(name, "Example")
 }
 
 func addTypeCounts(_ *int, pt *types.PackageTypes, c typesCounts) {

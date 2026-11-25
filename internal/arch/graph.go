@@ -8,7 +8,7 @@ import (
 )
 
 func GetDependencyGraph(proj *project.ProjectInfo) (*dependency.ModuleDependencyGraph, error) {
-	pkgs, err := scanPackages(proj.Path, proj.Package, false)
+	pkgs, err := scanPackages(proj.Path, proj.Package, false, false)
 	if err != nil {
 		return nil, err
 	}

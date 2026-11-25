@@ -14,8 +14,8 @@ type dsmDepDetails struct {
 	dependants   int64
 }
 
-func GetDSM(proj *project.ProjectInfo) (*dsm.DependencyStructureMatrix, error) {
-	pkgs, err := scanPackages(proj.Path, proj.Package, true)
+func GetDSM(proj *project.ProjectInfo, includeTests bool) (*dsm.DependencyStructureMatrix, error) {
+	pkgs, err := scanPackages(proj.Path, proj.Package, true, includeTests)
 	if err != nil {
 		return nil, err
 	}

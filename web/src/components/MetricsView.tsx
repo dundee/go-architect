@@ -7,6 +7,7 @@ import {
   Code2,
   Copy,
   FileText,
+  FlaskConical,
   Gauge,
   Loader2,
   MessageSquareText,
@@ -314,6 +315,106 @@ export function MetricsView({ project, refreshSignal }: MetricsViewProps) {
           </div>
         </div>
       </div>
+
+      {/* Test Code Box */}
+      {data.tests && (
+        <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-xs">
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+            <h2 className="flex items-center gap-2 text-sm font-semibold text-slate-900">
+              <FlaskConical className="h-4 w-4 text-teal-600" />
+              Test Code (<code className="font-mono text-xs">*_test.go</code>)
+            </h2>
+            <span className="rounded-full bg-teal-50 px-2.5 py-0.5 font-mono text-xs font-semibold text-teal-800 ring-1 ring-teal-600/20">
+              {(data.tests.ratio * 100).toFixed(1)}% of production LOC
+            </span>
+          </div>
+
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-12">
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:col-span-7">
+              <div className="rounded-lg border border-slate-200 bg-slate-50/60 px-3 py-2.5">
+                <div className="text-[11px] font-medium text-slate-500">
+                  Test Lines of Code
+                </div>
+                <div className="mt-0.5 font-mono text-lg font-bold text-slate-900">
+                  {data.tests.loc.toLocaleString()}
+                </div>
+                <div className="text-[10px] text-slate-500">
+                  Excluded from prod LOC
+                </div>
+              </div>
+
+              <div className="rounded-lg border border-slate-200 bg-slate-50/60 px-3 py-2.5">
+                <div className="text-[11px] font-medium text-slate-500">
+                  Test Files
+                </div>
+                <div className="mt-0.5 font-mono text-lg font-bold text-slate-900">
+                  {data.tests.files.toLocaleString()}
+                </div>
+                <div className="text-[10px] text-slate-500">
+                  *_test.go files
+                </div>
+              </div>
+
+              <div className="rounded-lg border border-slate-200 bg-slate-50/60 px-3 py-2.5">
+                <div className="text-[11px] font-medium text-slate-500">
+                  Test Functions
+                </div>
+                <div className="mt-0.5 font-mono text-lg font-bold text-slate-900">
+                  {data.tests.functions.toLocaleString()}
+                </div>
+                <div className="text-[10px] text-slate-500">
+                  Test / Benchmark / Fuzz
+                </div>
+              </div>
+
+              <div className="rounded-lg border border-slate-200 bg-slate-50/60 px-3 py-2.5">
+                <div className="text-[11px] font-medium text-slate-500">
+                  Test / Prod Ratio
+                </div>
+                <div className="mt-0.5 font-mono text-lg font-bold text-slate-900">
+                  {data.tests.ratio.toFixed(2)}×
+                </div>
+                <div className="text-[10px] text-slate-500">
+                  Test LOC ÷ Prod LOC
+                </div>
+              </div>
+            </div>
+
+            <div className="lg:col-span-5">
+              <h3 className="mb-2 text-[11px] font-semibold tracking-wider text-slate-500 uppercase">
+                Largest Test Files
+              </h3>
+              {!data.tests.largest_files ||
+              data.tests.largest_files.length === 0 ? (
+                <div className="rounded-lg border border-dashed border-slate-200 px-3 py-4 text-center text-xs text-slate-400">
+                  No <code className="font-mono">*_test.go</code> files found
+                </div>
+              ) : (
+                <ul className="divide-y divide-slate-100 rounded-lg border border-slate-200">
+                  {data.tests.largest_files.map((f) => (
+                    <li
+                      key={`${f.package}/${f.file}`}
+                      className="flex items-center justify-between gap-2 px-3 py-1.5 text-xs"
+                    >
+                      <div className="min-w-0">
+                        <div className="truncate font-mono text-slate-800">
+                          {f.file}
+                        </div>
+                        <div className="truncate font-mono text-[10px] text-slate-400">
+                          {shortenPackageName(f.package, mainPkg)}
+                        </div>
+                      </div>
+                      <span className="shrink-0 font-mono font-semibold text-slate-900">
+                        {f.loc.toLocaleString()}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Cyclomatic & Cognitive Complexity */}
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">

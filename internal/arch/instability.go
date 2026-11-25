@@ -8,7 +8,7 @@ import (
 )
 
 func GetInstability(proj *project.ProjectInfo) ([]*instability.PackageInstability, error) {
-	pkgs, err := scanPackages(proj.Path, proj.Package, false)
+	pkgs, err := scanPackages(proj.Path, proj.Package, false, false)
 	if err != nil {
 		return nil, err
 	}

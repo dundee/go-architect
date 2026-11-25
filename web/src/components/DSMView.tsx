@@ -45,6 +45,7 @@ export function DSMView({ project, refreshSignal }: DSMViewProps) {
   const [showWeighted, setShowWeighted] = useState(false)
   const [showAggregated, setShowAggregated] = useState(false)
   const [hideNonInternalCols, setHideNonInternalCols] = useState(false)
+  const [includeTests, setIncludeTests] = useState(false)
   const [hoveredCell, setHoveredCell] = useState<SelectedCell | null>(null)
   const [selectedCell, setSelectedCell] = useState<SelectedCell | null>(null)
   const [showHelp, setShowHelp] = useState(false)
@@ -58,30 +59,33 @@ export function DSMView({ project, refreshSignal }: DSMViewProps) {
 
   const lastRefreshRef = useRef(refreshSignal)
 
-  const loadData = useCallback((signal?: AbortSignal, refresh?: boolean) => {
-    setLoading(true)
-    setError(null)
-    fetchDSM(signal, refresh)
-      .then((res) => {
-        if (signal?.aborted) return
-        setDsm(res.dsm)
-        setDurationMs(res.duration_ms ?? null)
-        setSelectedCell(null)
-        setHoveredCell(null)
-      })
-      .catch((err: unknown) => {
-        if (signal?.aborted) return
-        setError(
-          err instanceof Error
-            ? err.message
-            : 'Failed to load Dependency Structure Matrix',
-        )
-      })
-      .finally(() => {
-        if (signal?.aborted) return
-        setLoading(false)
-      })
-  }, [])
+  const loadData = useCallback(
+    (signal?: AbortSignal, refresh?: boolean) => {
+      setLoading(true)
+      setError(null)
+      fetchDSM(signal, refresh, includeTests)
+        .then((res) => {
+          if (signal?.aborted) return
+          setDsm(res.dsm)
+          setDurationMs(res.duration_ms ?? null)
+          setSelectedCell(null)
+          setHoveredCell(null)
+        })
+        .catch((err: unknown) => {
+          if (signal?.aborted) return
+          setError(
+            err instanceof Error
+              ? err.message
+              : 'Failed to load Dependency Structure Matrix',
+          )
+        })
+        .finally(() => {
+          if (signal?.aborted) return
+          setLoading(false)
+        })
+    },
+    [includeTests],
+  )
 
   useEffect(() => {
     const controller = new AbortController()
@@ -89,7 +93,13 @@ export function DSMView({ project, refreshSignal }: DSMViewProps) {
     lastRefreshRef.current = refreshSignal
     loadData(controller.signal, isRefresh)
     return () => controller.abort()
-  }, [project.path, project.organization_packages, refreshSignal, loadData])
+  }, [
+    project.path,
+    project.organization_packages,
+    refreshSignal,
+    includeTests,
+    loadData,
+  ])
 
   const processed: ProcessedDSM | null = useMemo(() => {
     if (!dsm) return null
@@ -250,6 +260,19 @@ export function DSMView({ project, refreshSignal }: DSMViewProps) {
               Internal &amp; Org Only
             </label>
           )}
+
+          <label
+            className="inline-flex cursor-pointer items-center gap-2 text-xs font-medium text-slate-700"
+            title="Include *_test.go imports when building the matrix"
+          >
+            <input
+              type="checkbox"
+              checked={includeTests}
+              onChange={(e) => setIncludeTests(e.target.checked)}
+              className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+            />
+            Include <code className="font-mono">*_test.go</code>
+          </label>
         </div>
 
         <div className="flex flex-wrap items-center gap-3">

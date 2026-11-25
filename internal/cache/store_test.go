@@ -122,6 +122,7 @@ func TestProtobufRoundTrips(t *testing.T) {
 		Types:      &pt,
 		Interfaces: &interfaces.InterfaceMetrics{AverageMethods: 1.5, InterfaceMaxMethods: []interfaces.InterfaceInfo{{Package: "example.com/mod", File: "main.go", Name: "Runner", Methods: 2}}, InterfaceMinMethods: []interfaces.InterfaceInfo{}},
 		Comments:   &comments.CommentsMetrics{TotalLines: 10, CommentsRatio: 0.08, FilesWithComments: 1, FilesWithCommentsRatio: 0.33},
+		Tests:      &TestMetrics{LOC: 60, Files: 1, Functions: 3, Ratio: 0.5, LargestFiles: []loc.FileLOC{{Package: "example.com/mod", File: "main_test.go", LOC: 60}}},
 	}
 	require.NoError(t, store.PutMetricsBase(key, sha, base))
 	gotBase, ok := store.GetMetricsBase(key, sha)

@@ -83,6 +83,7 @@ type MetricsResponse struct {
 	Types                *types.ProjectTypes          `json:"types"`
 	Interfaces           *interfaces.InterfaceMetrics `json:"interfaces"`
 	Comments             *comments.CommentsMetrics    `json:"comments"`
+	Tests                *cache.TestMetrics           `json:"tests"`
 	CyclomaticComplexity ComplexityResult             `json:"cyclomatic_complexity"`
 	CognitiveComplexity  ComplexityResult             `json:"cognitive_complexity"`
 	Cached               bool                         `json:"cached"`
@@ -385,10 +386,16 @@ func (s *Server) handleGetDSM(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	includeTests := strings.EqualFold(strings.TrimSpace(r.URL.Query().Get("include_tests")), "true")
+
 	start := time.Now()
 	cc := s.resolveCacheContext(r.Context(), proj, r)
+	dsmKey := cc.projectKey
+	if includeTests && dsmKey != "" {
+		dsmKey += "::tests"
+	}
 	if cc.canRead {
-		if cached, ok := s.cacheStore.GetDSM(cc.projectKey, cc.sha); ok {
+		if cached, ok := s.cacheStore.GetDSM(dsmKey, cc.sha); ok {
 			writeJSON(w, http.StatusOK, DSMResponse{
 				DSM:        cached,
 				Cached:     true,
@@ -398,7 +405,7 @@ func (s *Server) handleGetDSM(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	matrix, err := arch.GetDSM(proj)
+	matrix, err := arch.GetDSM(proj, includeTests)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, fmt.Sprintf("build DSM: %v", err))
 		return
@@ -412,7 +419,7 @@ func (s *Server) handleGetDSM(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if cc.canWrite {
-		_ = s.cacheStore.PutDSM(cc.projectKey, cc.sha, matrix)
+		_ = s.cacheStore.PutDSM(dsmKey, cc.sha, matrix)
 	}
 
 	writeJSON(w, http.StatusOK, DSMResponse{
@@ -435,10 +442,16 @@ func (s *Server) handleGetCoupling(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	includeTests := strings.EqualFold(strings.TrimSpace(r.URL.Query().Get("include_tests")), "true")
+
 	start := time.Now()
 	cc := s.resolveCacheContext(r.Context(), proj, r)
+	couplingKey := cc.complexityKey
+	if includeTests && couplingKey != "" {
+		couplingKey += "::tests"
+	}
 	if cc.canRead {
-		if cached, ok := s.cacheStore.GetCoupling(cc.complexityKey, cc.sha, dep); ok {
+		if cached, ok := s.cacheStore.GetCoupling(couplingKey, cc.sha, dep); ok {
 			writeJSON(w, http.StatusOK, CouplingResponse{
 				Coupling:   cached,
 				Cached:     true,
@@ -448,7 +461,7 @@ func (s *Server) handleGetCoupling(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	result, err := arch.CalculateCoupling(proj, dep)
+	result, err := arch.CalculateCoupling(proj, dep, includeTests)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, fmt.Sprintf("calculate coupling: %v", err))
 		return
@@ -459,7 +472,7 @@ func (s *Server) handleGetCoupling(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if cc.canWrite {
-		_ = s.cacheStore.PutCoupling(cc.complexityKey, cc.sha, dep, result)
+		_ = s.cacheStore.PutCoupling(couplingKey, cc.sha, dep, result)
 	}
 
 	writeJSON(w, http.StatusOK, CouplingResponse{
@@ -526,6 +539,7 @@ func (s *Server) handleGetMetrics(w http.ResponseWriter, r *http.Request) {
 		Types:                baseMetrics.Types,
 		Interfaces:           baseMetrics.Interfaces,
 		Comments:             baseMetrics.Comments,
+		Tests:                baseMetrics.Tests,
 		CyclomaticComplexity: cycloRes,
 		CognitiveComplexity:  cognitRes,
 		Cached:               baseCached && compCached,

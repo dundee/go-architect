@@ -100,8 +100,12 @@ export function fetchDependencyGraph(
 export function fetchDSM(
   signal?: AbortSignal,
   refresh?: boolean,
+  includeTests?: boolean,
 ): Promise<DSMResponse> {
-  const qs = refresh ? '?refresh=true' : ''
+  const params = new URLSearchParams()
+  if (refresh) params.set('refresh', 'true')
+  if (includeTests) params.set('include_tests', 'true')
+  const qs = params.toString() ? `?${params.toString()}` : ''
   return requestJson<DSMResponse>(`/api/dsm${qs}`, { signal })
 }
 
@@ -109,9 +113,11 @@ export function fetchCoupling(
   dependency: string,
   signal?: AbortSignal,
   refresh?: boolean,
+  includeTests?: boolean,
 ): Promise<CouplingResponse> {
   const params = new URLSearchParams({ dependency })
   if (refresh) params.set('refresh', 'true')
+  if (includeTests) params.set('include_tests', 'true')
   return requestJson<CouplingResponse>(`/api/coupling?${params.toString()}`, {
     signal,
   })
