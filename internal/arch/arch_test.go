@@ -121,4 +121,48 @@ func TestCore(t *testing.T) {}
 	coupTestingIncluded, err := CalculateCoupling(proj, "testing", true)
 	require.NoError(t, err)
 	require.Greater(t, coupTestingIncluded.CouplingLevel, 0)
+
+	// 5. Graph Density from DSM
+	density := CalculateDensityFromDSM(matrix)
+	require.Equal(t, 3, density.InternalPackages)
+	require.Equal(t, 3, density.DirectEdges)
+	require.Equal(t, 50.0, density.PropagationCost)
+	require.Equal(t, 2, density.MaxDependencyDepth)
+	require.Equal(t, 0, density.CycleCount)
+}
+
+func TestCalculateGraphDensityCyclesAndEdgeCases(t *testing.T) {
+	// Empty and single-node graphs
+	require.Equal(t, GraphDensity{}, CalculateGraphDensity(nil, nil))
+	require.Equal(t, GraphDensity{InternalPackages: 1}, CalculateGraphDensity([]string{"a"}, nil))
+
+	// Linear chain A -> B -> C -> D (4 nodes, 6 reachable pairs out of 12 = 50%, depth 3)
+	chain := CalculateGraphDensity(
+		[]string{"a", "b", "c", "d"},
+		map[string][]string{
+			"a": {"b"},
+			"b": {"c"},
+			"c": {"d"},
+		},
+	)
+	require.Equal(t, 4, chain.InternalPackages)
+	require.Equal(t, 3, chain.DirectEdges)
+	require.Equal(t, 50.0, chain.PropagationCost)
+	require.Equal(t, 3, chain.MaxDependencyDepth)
+	require.Equal(t, 0, chain.CycleCount)
+
+	// Graph with a 3-node cycle (a -> b -> c -> a) plus leaf (c -> d)
+	cyclic := CalculateGraphDensity(
+		[]string{"a", "b", "c", "d"},
+		map[string][]string{
+			"a": {"b"},
+			"b": {"c"},
+			"c": {"a", "d"},
+		},
+	)
+	require.Equal(t, 4, cyclic.InternalPackages)
+	require.Equal(t, 4, cyclic.DirectEdges)
+	require.Equal(t, 1, cyclic.CycleCount)
+	require.Equal(t, 1, cyclic.MaxDependencyDepth) // SCC{a,b,c} -> SCC{d}
+	require.Equal(t, 75.0, cyclic.PropagationCost) // 9 reachable pairs out of 12
 }

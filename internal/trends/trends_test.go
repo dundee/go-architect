@@ -240,6 +240,8 @@ func TestAnalyzeWorksWithoutExternalGoModDownloads(t *testing.T) {
 	require.Equal(t, 1.0, m.AvgFunctionLOC)
 	require.Equal(t, 0.5, m.AvgFunctionParams)
 	require.Equal(t, 50.0, m.APIDocCoverage) // Svc is documented, Run is not
+	require.Equal(t, 50.0, m.PropagationCost)
+	require.Equal(t, 1, m.MaxDependencyDepth)
 	require.NotNil(t, m.CyclomaticComplexityAvg)
 	require.NotNil(t, m.CognitiveComplexityAvg)
 }

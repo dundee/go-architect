@@ -63,6 +63,7 @@ type DependencyGraphResponse struct {
 
 type DSMResponse struct {
 	DSM        *dsm.DependencyStructureMatrix `json:"dsm"`
+	Density    arch.GraphDensity              `json:"density"`
 	Cached     bool                           `json:"cached"`
 	DurationMs int64                          `json:"duration_ms"`
 }
@@ -410,6 +411,7 @@ func (s *Server) handleGetDSM(w http.ResponseWriter, r *http.Request) {
 		if cached, ok := s.cacheStore.GetDSM(dsmKey, cc.sha); ok {
 			writeJSON(w, http.StatusOK, DSMResponse{
 				DSM:        cached,
+				Density:    arch.CalculateDensityFromDSM(cached),
 				Cached:     true,
 				DurationMs: time.Since(start).Milliseconds(),
 			})
@@ -436,6 +438,7 @@ func (s *Server) handleGetDSM(w http.ResponseWriter, r *http.Request) {
 
 	writeJSON(w, http.StatusOK, DSMResponse{
 		DSM:        matrix,
+		Density:    arch.CalculateDensityFromDSM(matrix),
 		Cached:     false,
 		DurationMs: time.Since(start).Milliseconds(),
 	})

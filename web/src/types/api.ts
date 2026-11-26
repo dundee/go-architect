@@ -56,8 +56,17 @@ export interface DependencyStructureMatrix {
   dependencies: number[][]
 }
 
+export interface GraphDensity {
+  internal_packages: number
+  direct_edges: number
+  propagation_cost: number
+  max_dependency_depth: number
+  cycle_count: number
+}
+
 export interface DSMResponse {
   dsm: DependencyStructureMatrix
+  density: GraphDensity
   cached?: boolean
   duration_ms: number
 }
@@ -319,6 +328,8 @@ export interface SnapshotMetrics {
   avg_function_loc: number
   avg_function_params: number
   api_doc_coverage: number
+  propagation_cost: number
+  max_dependency_depth: number
   cyclomatic_complexity_avg?: number
   cognitive_complexity_avg?: number
 }

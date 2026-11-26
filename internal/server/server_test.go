@@ -120,6 +120,9 @@ func TestServerEndpoints(t *testing.T) {
 		require.NotNil(t, resp.DSM)
 		require.NotEmpty(t, resp.DSM.Packages)
 		require.Equal(t, len(resp.DSM.Packages), len(resp.DSM.Dependencies))
+		require.Greater(t, resp.Density.InternalPackages, 0)
+		require.Greater(t, resp.Density.MaxDependencyDepth, 0)
+		require.Greater(t, resp.Density.PropagationCost, 0.0)
 	})
 
 	t.Run("GET /api/coupling", func(t *testing.T) {
@@ -157,6 +160,11 @@ func TestServerEndpoints(t *testing.T) {
 		require.NotNil(t, resp.Tests)
 		require.Greater(t, resp.Tests.LOC, 0)
 		require.Greater(t, resp.Tests.Files, 0)
+		require.Greater(t, resp.Tests.TotalPackages, 0)
+		require.NotNil(t, resp.Functions)
+		require.Greater(t, resp.Functions.Total, 0)
+		require.NotNil(t, resp.DocCoverage)
+		require.Greater(t, resp.DocCoverage.ExportedTotal, 0)
 		require.NotNil(t, resp.CyclomaticComplexity.Data)
 		require.NotEmpty(t, resp.CyclomaticComplexity.Data.ComplexityDetails)
 		require.NotNil(t, resp.CognitiveComplexity.Data)

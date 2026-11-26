@@ -32,6 +32,8 @@ type SnapshotMetrics struct {
 	AvgFunctionLOC          float64  `json:"avg_function_loc"`
 	AvgFunctionParams       float64  `json:"avg_function_params"`
 	APIDocCoverage          float64  `json:"api_doc_coverage"`
+	PropagationCost         float64  `json:"propagation_cost"`
+	MaxDependencyDepth      int      `json:"max_dependency_depth"`
 	CyclomaticComplexityAvg *float64 `json:"cyclomatic_complexity_avg,omitempty"`
 	CognitiveComplexityAvg  *float64 `json:"cognitive_complexity_avg,omitempty"`
 }

@@ -46,6 +46,8 @@ type SnapshotMetricsProto struct {
 	TestedPackages         int32                  `protobuf:"varint,21,opt,name=tested_packages,json=testedPackages,proto3" json:"tested_packages,omitempty"`
 	UntestedPackages       int32                  `protobuf:"varint,22,opt,name=untested_packages,json=untestedPackages,proto3" json:"untested_packages,omitempty"`
 	TestedPackagesRatio    float64                `protobuf:"fixed64,23,opt,name=tested_packages_ratio,json=testedPackagesRatio,proto3" json:"tested_packages_ratio,omitempty"`
+	PropagationCost        float64                `protobuf:"fixed64,24,opt,name=propagation_cost,json=propagationCost,proto3" json:"propagation_cost,omitempty"`
+	MaxDependencyDepth     int32                  `protobuf:"varint,25,opt,name=max_dependency_depth,json=maxDependencyDepth,proto3" json:"max_dependency_depth,omitempty"`
 	unknownFields          protoimpl.UnknownFields
 	sizeCache              protoimpl.SizeCache
 }
@@ -237,6 +239,20 @@ func (x *SnapshotMetricsProto) GetUntestedPackages() int32 {
 func (x *SnapshotMetricsProto) GetTestedPackagesRatio() float64 {
 	if x != nil {
 		return x.TestedPackagesRatio
+	}
+	return 0
+}
+
+func (x *SnapshotMetricsProto) GetPropagationCost() float64 {
+	if x != nil {
+		return x.PropagationCost
+	}
+	return 0
+}
+
+func (x *SnapshotMetricsProto) GetMaxDependencyDepth() int32 {
+	if x != nil {
+		return x.MaxDependencyDepth
 	}
 	return 0
 }
@@ -2493,7 +2509,7 @@ var File_cache_proto protoreflect.FileDescriptor
 
 const file_cache_proto_rawDesc = "" +
 	"\n" +
-	"\vcache.proto\x12\acachepb\"\x87\a\n" +
+	"\vcache.proto\x12\acachepb\"\xe4\a\n" +
 	"\x14SnapshotMetricsProto\x12\x10\n" +
 	"\x03loc\x18\x01 \x01(\x05R\x03loc\x12\x1a\n" +
 	"\bpackages\x18\x02 \x01(\x05R\bpackages\x12!\n" +
@@ -2521,7 +2537,9 @@ const file_cache_proto_rawDesc = "" +
 	"\x10api_doc_coverage\x18\x14 \x01(\x01R\x0eapiDocCoverage\x12'\n" +
 	"\x0ftested_packages\x18\x15 \x01(\x05R\x0etestedPackages\x12+\n" +
 	"\x11untested_packages\x18\x16 \x01(\x05R\x10untestedPackages\x122\n" +
-	"\x15tested_packages_ratio\x18\x17 \x01(\x01R\x13testedPackagesRatio\"\xdc\x01\n" +
+	"\x15tested_packages_ratio\x18\x17 \x01(\x01R\x13testedPackagesRatio\x12)\n" +
+	"\x10propagation_cost\x18\x18 \x01(\x01R\x0fpropagationCost\x120\n" +
+	"\x14max_dependency_depth\x18\x19 \x01(\x05R\x12maxDependencyDepth\"\xdc\x01\n" +
 	"\x13CommitSnapshotProto\x12\x1d\n" +
 	"\n" +
 	"commit_sha\x18\x01 \x01(\tR\tcommitSha\x12\x1b\n" +

@@ -14,6 +14,7 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/dundee/go-architect/internal/arch"
 	"github.com/dundee/go-architect/internal/complexity"
 	"github.com/fzipp/gocyclo"
 	"github.com/go-git/go-git/v5"
@@ -370,9 +371,21 @@ func analyzeTreeFiles(files []treeFile, modPath string, includeComplexity bool) 
 	}
 
 	testedPkgs := 0
-	for pkg := range pkgMap {
+	internalNodes := make([]string, 0, len(pkgMap))
+	internalEdges := make(map[string][]string, len(pkgMap))
+	for pkg, st := range pkgMap {
 		if _, ok := testPkgSet[pkg]; ok {
 			testedPkgs++
+		}
+		internalNodes = append(internalNodes, pkg)
+		if len(st.efferent) > 0 {
+			targets := make([]string, 0, len(st.efferent))
+			for imp := range st.efferent {
+				if _, exists := pkgMap[imp]; exists {
+					targets = append(targets, imp)
+				}
+			}
+			internalEdges[pkg] = targets
 		}
 	}
 	untestedPkgs := len(pkgMap) - testedPkgs
@@ -380,6 +393,7 @@ func analyzeTreeFiles(files []treeFile, modPath string, includeComplexity bool) 
 	if len(pkgMap) > 0 {
 		testedPkgsRatio = round2(100 * float64(testedPkgs) / float64(len(pkgMap)))
 	}
+	density := arch.CalculateGraphDensity(internalNodes, internalEdges)
 
 	var compReport *complexity.Report
 	if includeComplexity {
@@ -412,6 +426,8 @@ func analyzeTreeFiles(files []treeFile, modPath string, includeComplexity bool) 
 		AvgFunctionLOC:         avgFuncLOC,
 		AvgFunctionParams:      avgFuncParams,
 		APIDocCoverage:         apiDocCoverage,
+		PropagationCost:        density.PropagationCost,
+		MaxDependencyDepth:     density.MaxDependencyDepth,
 	}, compReport
 }
 

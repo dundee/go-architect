@@ -28,6 +28,8 @@ message SnapshotMetricsProto {
   int32 tested_packages = 21;
   int32 untested_packages = 22;
   double tested_packages_ratio = 23;
+  double propagation_cost = 24;
+  int32 max_dependency_depth = 25;
 }
 
 message CommitSnapshotProto {

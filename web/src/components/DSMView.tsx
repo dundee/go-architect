@@ -10,7 +10,11 @@ import {
   RefreshCw,
 } from 'lucide-react'
 import { fetchDSM } from '../api/client'
-import type { DependencyStructureMatrix, ProjectInfo } from '../types/api'
+import type {
+  DependencyStructureMatrix,
+  GraphDensity,
+  ProjectInfo,
+} from '../types/api'
 import {
   LAYER_META,
   LAYER_ORDER,
@@ -38,6 +42,7 @@ interface ProcessedDSM {
 
 export function DSMView({ project, refreshSignal }: DSMViewProps) {
   const [dsm, setDsm] = useState<DependencyStructureMatrix | null>(null)
+  const [density, setDensity] = useState<GraphDensity | null>(null)
   const [durationMs, setDurationMs] = useState<number | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -67,6 +72,7 @@ export function DSMView({ project, refreshSignal }: DSMViewProps) {
         .then((res) => {
           if (signal?.aborted) return
           setDsm(res.dsm)
+          setDensity(res.density ?? null)
           setDurationMs(res.duration_ms ?? null)
           setSelectedCell(null)
           setHoveredCell(null)
@@ -275,12 +281,32 @@ export function DSMView({ project, refreshSignal }: DSMViewProps) {
           </label>
         </div>
 
-        <div className="flex flex-wrap items-center gap-3">
-          {cyclePairs.pairCount > 0 ? (
-            <span className="inline-flex items-center gap-1.5 rounded-full bg-rose-50 px-2.5 py-1 text-xs font-semibold text-rose-700 ring-1 ring-rose-600/20">
+        <div className="flex flex-wrap items-center gap-2.5">
+          {density && (
+            <>
+              <span
+                className="rounded-full bg-indigo-50 px-2.5 py-1 font-mono text-xs font-semibold text-indigo-800 ring-1 ring-indigo-600/20"
+                title="Propagation Cost: average percentage of other internal packages transitively impacted when one internal package changes"
+              >
+                Propagation Cost: {density.propagation_cost.toFixed(1)}%
+              </span>
+              <span
+                className="rounded-full bg-sky-50 px-2.5 py-1 font-mono text-xs font-semibold text-sky-800 ring-1 ring-sky-600/20"
+                title="Longest internal package dependency chain (in directed edges)"
+              >
+                Max Depth: {density.max_dependency_depth}
+              </span>
+            </>
+          )}
+
+          {cyclePairs.pairCount > 0 || (density && density.cycle_count > 0) ? (
+            <span
+              className="inline-flex items-center gap-1.5 rounded-full bg-rose-50 px-2.5 py-1 text-xs font-semibold text-rose-700 ring-1 ring-rose-600/20"
+              title="Strongly connected package groups / mutual dependency pairs"
+            >
               <AlertTriangle className="h-3.5 w-3.5" />
-              {cyclePairs.pairCount}{' '}
-              {cyclePairs.pairCount === 1
+              {Math.max(cyclePairs.pairCount, density?.cycle_count ?? 0)}{' '}
+              {Math.max(cyclePairs.pairCount, density?.cycle_count ?? 0) === 1
                 ? 'Dependency Cycle'
                 : 'Dependency Cycles'}
             </span>

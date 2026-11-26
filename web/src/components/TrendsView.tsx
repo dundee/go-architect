@@ -605,6 +605,41 @@ export function TrendsView({ project, refreshSignal }: TrendsViewProps) {
                 },
               ]}
             />
+
+            <TrendChartCard
+              title="Coupling Density (Propagation Cost)"
+              subtitle="Average % of internal packages transitively impacted by a change"
+              points={points}
+              hoveredIdx={hoveredIdx}
+              onHoverIdx={setHoveredIdx}
+              yDomain={[0, 100]}
+              series={[
+                {
+                  id: 'prop_cost',
+                  label: 'Propagation Cost %',
+                  color: '#e11d48',
+                  getValue: (p) => p.metrics.propagation_cost,
+                  formatValue: (v) => `${v.toFixed(1)}%`,
+                },
+              ]}
+            />
+
+            <TrendChartCard
+              title="Dependency Depth"
+              subtitle="Longest internal package dependency chain (in edges)"
+              points={points}
+              hoveredIdx={hoveredIdx}
+              onHoverIdx={setHoveredIdx}
+              series={[
+                {
+                  id: 'dep_depth',
+                  label: 'Max Depth',
+                  color: '#4f46e5',
+                  getValue: (p) => p.metrics.max_dependency_depth,
+                  formatValue: (v) => String(Math.round(v)),
+                },
+              ]}
+            />
           </div>
 
           {/* Sampled Snapshots Table */}

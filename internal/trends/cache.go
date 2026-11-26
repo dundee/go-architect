@@ -31,7 +31,7 @@ func NewCacheFromStore(store *cache.Store) *Cache {
 	return &Cache{store: store}
 }
 
-const snapshotSchemaVersion int32 = 4
+const snapshotSchemaVersion int32 = 5
 
 func (c *Cache) GetSnapshot(projectKey, sha string) (*CommitSnapshot, bool) {
 	if c == nil || c.store == nil {
@@ -74,6 +74,8 @@ func (c *Cache) GetSnapshot(projectKey, sha string) (*CommitSnapshot, bool) {
 			AvgFunctionLOC:         m.GetAvgFunctionLoc(),
 			AvgFunctionParams:      m.GetAvgFunctionParams(),
 			APIDocCoverage:         m.GetApiDocCoverage(),
+			PropagationCost:        m.GetPropagationCost(),
+			MaxDependencyDepth:     int(m.GetMaxDependencyDepth()),
 		},
 	}, true
 }
@@ -111,6 +113,8 @@ func (c *Cache) PutSnapshot(projectKey string, snap CommitSnapshot) error {
 			AvgFunctionLoc:         snap.Metrics.AvgFunctionLOC,
 			AvgFunctionParams:      snap.Metrics.AvgFunctionParams,
 			ApiDocCoverage:         snap.Metrics.APIDocCoverage,
+			PropagationCost:        snap.Metrics.PropagationCost,
+			MaxDependencyDepth:     int32(snap.Metrics.MaxDependencyDepth),
 			SchemaVersion:          snapshotSchemaVersion,
 		},
 	}
