@@ -304,6 +304,15 @@ func TestServerCommitCaching(t *testing.T) {
 	require.Equal(t, http.StatusOK, recTrends.Code)
 	require.Contains(t, recTrends.Body.String(), `"cyclomatic_complexity_avg"`)
 
+	// 3b. Hotspots combines VCS churn with per-file complexity.
+	recHotspots := httptest.NewRecorder()
+	srv.Handler().ServeHTTP(recHotspots, httptest.NewRequest(http.MethodGet, "/api/hotspots?months=6", nil))
+	require.Equal(t, http.StatusOK, recHotspots.Code)
+	var hotspotsResp HotspotsResponse
+	require.NoError(t, json.Unmarshal(recHotspots.Body.Bytes(), &hotspotsResp))
+	require.True(t, hotspotsResp.Cached)
+	require.GreaterOrEqual(t, hotspotsResp.TotalFiles, 1)
+
 	// 4. Explicit refresh=true bypasses cache read.
 	recRefresh := httptest.NewRecorder()
 	srv.Handler().ServeHTTP(recRefresh, httptest.NewRequest(http.MethodGet, "/api/instability?refresh=true", nil))

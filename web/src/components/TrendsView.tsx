@@ -538,6 +538,30 @@ export function TrendsView({ project, refreshSignal }: TrendsViewProps) {
                 },
               ]}
             />
+
+            <TrendChartCard
+              title="Function Size &amp; Parameters"
+              subtitle="Average lines of code and parameter count per function/method"
+              points={points}
+              hoveredIdx={hoveredIdx}
+              onHoverIdx={setHoveredIdx}
+              series={[
+                {
+                  id: 'fn_loc',
+                  label: 'Avg Function LOC',
+                  color: '#7c3aed',
+                  getValue: (p) => p.metrics.avg_function_loc,
+                  formatValue: (v) => v.toFixed(1),
+                },
+                {
+                  id: 'fn_params',
+                  label: 'Avg Parameters',
+                  color: '#0284c7',
+                  getValue: (p) => p.metrics.avg_function_params,
+                  formatValue: (v) => v.toFixed(2),
+                },
+              ]}
+            />
           </div>
 
           {/* Sampled Snapshots Table */}

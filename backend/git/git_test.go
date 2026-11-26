@@ -243,4 +243,12 @@ func Test_LoadRepositoryTeamCohesion_NativeGit(t *testing.T) {
 	require.Len(t, info.ModificationsInfo.FileModifications, 1)
 	require.Equal(t, 3, info.ModificationsInfo.FileModifications[0].TotalModifications)
 	require.Len(t, info.ModificationsInfo.FileModifications[0].AuthorsSummary, 2)
+
+	commitCounts, err := LoadFileCommitCounts(dir, &since)
+	require.NoError(t, err)
+	require.Equal(t, map[string]int{"pkg/a.go": 2}, commitCounts)
+
+	goGitCounts, err := loadFileCommitCountsGoGit(dir, &since)
+	require.NoError(t, err)
+	require.Equal(t, map[string]int{"pkg/a.go": 2}, goGitCounts)
 }

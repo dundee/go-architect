@@ -10,6 +10,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/dundee/go-architect/internal/cache/cachepb"
 	"github.com/go-architect/go-architect-lib/project"
 	"github.com/stretchr/testify/require"
 )
@@ -233,6 +234,8 @@ func TestAnalyzeWorksWithoutExternalGoModDownloads(t *testing.T) {
 	require.Equal(t, 1, m.TestFiles)
 	require.Equal(t, 1, m.TestFunctions)
 	require.Greater(t, m.TestLOC, 0)
+	require.Equal(t, 1.0, m.AvgFunctionLOC)
+	require.Equal(t, 0.5, m.AvgFunctionParams)
 	require.NotNil(t, m.CyclomaticComplexityAvg)
 	require.NotNil(t, m.CognitiveComplexityAvg)
 }
@@ -265,4 +268,24 @@ func TestTreeBuildContextHandlesWindowsPaths(t *testing.T) {
 	ok, err = buildCtx.MatchFile("pkg", "svc.go")
 	require.NoError(t, err)
 	require.True(t, ok)
+}
+
+func TestLegacySnapshotCacheIsInvalidated(t *testing.T) {
+	cacheDir := t.TempDir()
+	trendCache := NewCache(cacheDir)
+	projectKey := "example.com/legacy::.::"
+	sha := "1111111111111111111111111111111111111111"
+
+	require.NoError(t, trendCache.store.PutProto("trends", fmt.Sprintf("%s@%s", projectKey, sha), &cachepb.CommitSnapshotProto{
+		CommitSha: sha,
+		ShortSha:  sha[:7],
+		Metrics: &cachepb.SnapshotMetricsProto{
+			Loc:       100,
+			Functions: 5,
+			// SchemaVersion intentionally 0 (legacy entry missing avg_function_loc/params)
+		},
+	}))
+
+	_, ok := trendCache.GetSnapshot(projectKey, sha)
+	require.False(t, ok)
 }

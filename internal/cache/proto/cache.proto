@@ -21,6 +21,9 @@ message SnapshotMetricsProto {
   int32 test_loc = 14;
   int32 test_files = 15;
   int32 test_functions = 16;
+  double avg_function_loc = 17;
+  double avg_function_params = 18;
+  int32 schema_version = 19;
 }
 
 message CommitSnapshotProto {
@@ -180,6 +183,24 @@ message TestMetricsProto {
   repeated FileLOCProto largest_files = 5;
 }
 
+message FunctionDetailProto {
+  string package = 1;
+  string file = 2;
+  string name = 3;
+  int32 loc = 4;
+  int32 params = 5;
+}
+
+message FunctionMetricsProto {
+  int32 total = 1;
+  double average_loc = 2;
+  int32 max_loc = 3;
+  double average_params = 4;
+  int32 max_params = 5;
+  repeated FunctionDetailProto long_functions = 6;
+  repeated FunctionDetailProto high_param_funcs = 7;
+}
+
 message MetricsBaseCacheProto {
   int32 loc_total = 1;
   repeated PackageLOCProto loc_packages = 2;
@@ -188,6 +209,8 @@ message MetricsBaseCacheProto {
   InterfaceMetricsProto interfaces = 5;
   CommentsMetricsProto comments = 6;
   TestMetricsProto tests = 7;
+  FunctionMetricsProto functions = 8;
+  int32 schema_version = 9;
 }
 
 message AuthorInfoProto {

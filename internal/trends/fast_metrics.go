@@ -41,6 +41,8 @@ type parsedFileMetrics struct {
 	interfaces       int
 	functions        int
 	methods          int
+	fnLOCSum         int
+	fnParamSum       int
 	interfaceMethods []int
 	imports          []string
 	cycloDetails     []complexity.Detail
@@ -252,6 +254,7 @@ func analyzeTreeFiles(files []treeFile, modPath string, includeComplexity bool) 
 		totalLOC, sourceFiles                  int
 		testLOC, testFiles, testFunctions      int
 		structs, interfaces, functions, methods int
+		fnLOCSum, fnParamSum                   int
 		commentsTotal                          int
 		ifaceMethodSum, ifaceCount             int
 		cycloDetails, cognitDetails            []complexity.Detail
@@ -281,6 +284,8 @@ func analyzeTreeFiles(files []treeFile, modPath string, includeComplexity bool) 
 		interfaces += pf.interfaces
 		functions += pf.functions
 		methods += pf.methods
+		fnLOCSum += pf.fnLOCSum
+		fnParamSum += pf.fnParamSum
 		for _, mCount := range pf.interfaceMethods {
 			ifaceCount++
 			ifaceMethodSum += mCount
@@ -346,6 +351,12 @@ func analyzeTreeFiles(files []treeFile, modPath string, includeComplexity bool) 
 		ifaceAvgMethods = float64(ifaceMethodSum) / float64(ifaceCount)
 	}
 
+	var avgFuncLOC, avgFuncParams float64
+	if totalFuncs := functions + methods; totalFuncs > 0 {
+		avgFuncLOC = round2(float64(fnLOCSum) / float64(totalFuncs))
+		avgFuncParams = round2(float64(fnParamSum) / float64(totalFuncs))
+	}
+
 	var compReport *complexity.Report
 	if includeComplexity {
 		compReport = &complexity.Report{
@@ -371,6 +382,8 @@ func analyzeTreeFiles(files []treeFile, modPath string, includeComplexity bool) 
 		TestLOC:                testLOC,
 		TestFiles:              testFiles,
 		TestFunctions:          testFunctions,
+		AvgFunctionLOC:         avgFuncLOC,
+		AvgFunctionParams:      avgFuncParams,
 	}, compReport
 }
 
@@ -425,6 +438,12 @@ func parseSingleTreeFile(tf treeFile, modPath string, includeComplexity bool) (p
 			} else {
 				out.functions++
 			}
+			fnLOC := fset.Position(d.End()).Line - fset.Position(d.Pos()).Line + 1
+			if fnLOC < 1 {
+				fnLOC = 1
+			}
+			out.fnLOCSum += fnLOC
+			out.fnParamSum += countFuncParams(d.Type)
 		case *ast.GenDecl:
 			if len(d.Specs) == 0 {
 				continue
@@ -498,4 +517,19 @@ func isTestFuncName(name string) bool {
 		strings.HasPrefix(name, "Benchmark") ||
 		strings.HasPrefix(name, "Fuzz") ||
 		strings.HasPrefix(name, "Example")
+}
+
+func countFuncParams(ft *ast.FuncType) int {
+	if ft == nil || ft.Params == nil {
+		return 0
+	}
+	total := 0
+	for _, f := range ft.Params.List {
+		if len(f.Names) == 0 {
+			total++
+		} else {
+			total += len(f.Names)
+		}
+	}
+	return total
 }

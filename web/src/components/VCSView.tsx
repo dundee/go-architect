@@ -3,6 +3,7 @@ import {
   AlertCircle,
   Calendar,
   FileCode2,
+  Flame,
   Folder,
   GitCommitHorizontal,
   Loader2,
@@ -12,13 +13,15 @@ import {
   Users,
   X,
 } from 'lucide-react'
-import { fetchVCS } from '../api/client'
+import { fetchHotspots, fetchVCS } from '../api/client'
 import type {
   ContributorSummary,
+  FileHotspot,
   ModificationsInfo,
   ProjectInfo,
   VCSAnalysisInfo,
 } from '../types/api'
+import { shortenPackageName } from '../utils/packages'
 
 interface VCSViewProps {
   project: ProjectInfo
@@ -92,16 +95,32 @@ export function VCSView({ project, refreshSignal }: VCSViewProps) {
   const [riskFilter, setRiskFilter] = useState<BusFactorRisk | 'all'>('all')
   const [searchQuery, setSearchQuery] = useState('')
 
+  const [hotspots, setHotspots] = useState<FileHotspot[] | null>(null)
+  const [hotspotsLoading, setHotspotsLoading] = useState(false)
+  const [hotspotSearch, setHotspotSearch] = useState('')
+
   const lastRefreshRef = useRef(refreshSignal)
 
   const loadData = useCallback((targetMonths: number, signal?: AbortSignal, refresh?: boolean) => {
     setLoading(true)
     setError(null)
+    setHotspotsLoading(true)
     fetchVCS(targetMonths, signal, refresh)
       .then((res) => {
         if (signal?.aborted) return
         setVcs(res.vcs)
         setDurationMs(res.duration_ms ?? null)
+        setLoading(false)
+
+        return fetchHotspots(targetMonths, signal, refresh)
+          .then((hRes) => {
+            if (signal?.aborted) return
+            setHotspots(hRes.hotspots)
+          })
+          .catch(() => {
+            if (signal?.aborted) return
+            setHotspots(null)
+          })
       })
       .catch((err: unknown) => {
         if (signal?.aborted) return
@@ -110,7 +129,10 @@ export function VCSView({ project, refreshSignal }: VCSViewProps) {
         )
       })
       .finally(() => {
-        if (!signal?.aborted) setLoading(false)
+        if (!signal?.aborted) {
+          setLoading(false)
+          setHotspotsLoading(false)
+        }
       })
   }, [])
 
@@ -169,6 +191,19 @@ export function VCSView({ project, refreshSignal }: VCSViewProps) {
       return true
     })
   }, [rawItems, riskFilter, searchQuery, totalContributors])
+
+  const filteredHotspots = useMemo(() => {
+    if (!hotspots) return []
+    const q = hotspotSearch.trim().toLowerCase()
+    const list = q
+      ? hotspots.filter(
+          (h) =>
+            h.file.toLowerCase().includes(q) ||
+            h.package.toLowerCase().includes(q),
+        )
+      : hotspots
+    return list.slice(0, 50)
+  }, [hotspots, hotspotSearch])
 
   const applyCustomMonths = (e: React.FormEvent) => {
     e.preventDefault()
@@ -487,6 +522,163 @@ export function VCSView({ project, refreshSignal }: VCSViewProps) {
                   })}
                 </ul>
               </div>
+            </div>
+          )}
+
+          {/* Code Hotspots (Churn x Complexity) */}
+          {vcs.AuthorsInfo.TotalCommits > 0 && (
+            <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-xs">
+              <div className="mb-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <h2 className="flex items-center gap-2 text-sm font-semibold text-slate-900">
+                    <Flame className="h-4 w-4 text-orange-600" />
+                    Code Hotspots (Churn &times; Complexity)
+                    {hotspots && (
+                      <span className="rounded-full bg-slate-100 px-2 py-0.5 font-mono text-[11px] font-medium text-slate-600">
+                        {hotspots.length} files
+                      </span>
+                    )}
+                  </h2>
+                  <p className="mt-0.5 text-xs text-slate-500">
+                    Production Go files ranked by combining recent change activity (commits &amp; modified lines) with complexity and size.
+                  </p>
+                </div>
+
+                <div className="relative w-full sm:max-w-xs">
+                  <Search className="pointer-events-none absolute top-1/2 left-2.5 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
+                  <input
+                    type="text"
+                    value={hotspotSearch}
+                    onChange={(e) => setHotspotSearch(e.target.value)}
+                    placeholder="Filter hotspot files..."
+                    className="w-full rounded-lg border border-slate-200 bg-slate-50 py-1.5 pr-7 pl-8 text-xs text-slate-900 placeholder:text-slate-400 focus:border-indigo-500 focus:bg-white focus:outline-none"
+                  />
+                  {hotspotSearch && (
+                    <button
+                      type="button"
+                      onClick={() => setHotspotSearch('')}
+                      className="absolute top-1/2 right-2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                    >
+                      <X className="h-3.5 w-3.5" />
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {hotspotsLoading && !hotspots ? (
+                <div className="flex items-center gap-2 py-8 text-xs text-slate-500">
+                  <Loader2 className="h-4 w-4 animate-spin text-orange-600" />
+                  Correlating git churn with per-file complexity...
+                </div>
+              ) : filteredHotspots.length === 0 ? (
+                <div className="rounded-lg border border-slate-100 bg-slate-50 px-4 py-8 text-center text-xs text-slate-500">
+                  No production Go files matched churn activity in this time window.
+                </div>
+              ) : (
+                <div className="max-h-[420px] overflow-auto rounded-lg border border-slate-200">
+                  <table className="w-full border-collapse text-left text-xs">
+                    <thead className="sticky top-0 z-10 border-b border-slate-200 bg-slate-50 text-[11px] font-semibold text-slate-600 uppercase">
+                      <tr>
+                        <th className="px-3 py-2.5">File</th>
+                        <th className="px-3 py-2.5">Hotspot Score</th>
+                        <th className="px-3 py-2.5 text-right">Commits</th>
+                        <th className="px-3 py-2.5 text-right">Churn</th>
+                        <th className="px-3 py-2.5 text-right">Cognitive</th>
+                        <th className="px-3 py-2.5 text-right">Cyclomatic</th>
+                        <th className="px-3 py-2.5 text-right">LOC</th>
+                        <th className="px-3 py-2.5 text-right">Authors</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {filteredHotspots.map((h) => {
+                        const scoreBadge =
+                          h.score >= 70
+                            ? 'bg-rose-50 text-rose-700 ring-rose-600/20'
+                            : h.score >= 40
+                              ? 'bg-amber-50 text-amber-700 ring-amber-600/20'
+                              : 'bg-slate-100 text-slate-700 ring-slate-500/20'
+                        const barColor =
+                          h.score >= 70
+                            ? '#e11d48'
+                            : h.score >= 40
+                              ? '#d97706'
+                              : '#64748b'
+                        return (
+                          <tr key={h.file} className="hover:bg-slate-50/70">
+                            <td className="max-w-[280px] px-3 py-2.5">
+                              <div
+                                className="truncate font-mono text-xs font-medium text-slate-900"
+                                title={h.file}
+                              >
+                                {h.file}
+                              </div>
+                              <div
+                                className="truncate font-mono text-[10px] text-slate-400"
+                                title={h.package}
+                              >
+                                {shortenPackageName(h.package, project.package)}
+                              </div>
+                            </td>
+                            <td className="px-3 py-2.5 whitespace-nowrap">
+                              <div className="flex items-center gap-2">
+                                <span
+                                  className={`inline-flex min-w-[46px] items-center justify-center rounded-full px-2 py-0.5 font-mono text-[11px] font-semibold ring-1 ring-inset ${scoreBadge}`}
+                                >
+                                  {h.score.toFixed(0)}
+                                </span>
+                                <div className="hidden h-1.5 w-16 overflow-hidden rounded-full bg-slate-100 sm:block">
+                                  <div
+                                    className="h-full rounded-full"
+                                    style={{
+                                      width: `${Math.min(100, Math.max(h.score, 4))}%`,
+                                      backgroundColor: barColor,
+                                    }}
+                                  />
+                                </div>
+                              </div>
+                            </td>
+                            <td className="px-3 py-2.5 text-right font-mono text-slate-800 tabular-nums">
+                              {h.commits}
+                            </td>
+                            <td className="px-3 py-2.5 text-right font-mono text-slate-800 tabular-nums">
+                              {h.churn.toLocaleString()}
+                            </td>
+                            <td
+                              className="px-3 py-2.5 text-right font-mono text-slate-800 tabular-nums"
+                              title={`Max function cognitive complexity: ${h.max_cognitive}`}
+                            >
+                              {h.cognitive_complexity}
+                              <span className="ml-1 text-[10px] text-slate-400">
+                                (max {h.max_cognitive})
+                              </span>
+                            </td>
+                            <td
+                              className="px-3 py-2.5 text-right font-mono text-slate-800 tabular-nums"
+                              title={`Max function cyclomatic complexity: ${h.max_cyclomatic}`}
+                            >
+                              {h.cyclomatic_complexity}
+                            </td>
+                            <td className="px-3 py-2.5 text-right font-mono text-slate-600 tabular-nums">
+                              {h.loc.toLocaleString()}
+                            </td>
+                            <td className="px-3 py-2.5 text-right font-mono tabular-nums">
+                              <span
+                                className={
+                                  h.contributors <= 1
+                                    ? 'font-semibold text-rose-600'
+                                    : 'text-slate-600'
+                                }
+                              >
+                                {h.contributors}
+                              </span>
+                            </td>
+                          </tr>
+                        )
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
             </div>
           )}
         </>

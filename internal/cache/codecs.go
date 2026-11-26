@@ -25,12 +25,31 @@ type TestMetrics struct {
 	LargestFiles []loc.FileLOC `json:"largest_files"`
 }
 
+type FunctionDetail struct {
+	Package string `json:"package"`
+	File    string `json:"file"`
+	Name    string `json:"name"`
+	LOC     int    `json:"loc"`
+	Params  int    `json:"params"`
+}
+
+type FunctionMetrics struct {
+	Total          int              `json:"total"`
+	AverageLOC     float64          `json:"average_loc"`
+	MaxLOC         int              `json:"max_loc"`
+	AverageParams  float64          `json:"average_params"`
+	MaxParams      int              `json:"max_params"`
+	LongFunctions  []FunctionDetail `json:"long_functions"`
+	HighParamFuncs []FunctionDetail `json:"high_param_funcs"`
+}
+
 type MetricsBase struct {
 	LOC        *loc.ProjectLOC
 	Types      *types.ProjectTypes
 	Interfaces *interfaces.InterfaceMetrics
 	Comments   *comments.CommentsMetrics
 	Tests      *TestMetrics
+	Functions  *FunctionMetrics
 }
 
 // --- Complexity (stored separately from trends & base metrics) ---
@@ -306,9 +325,14 @@ func (s *Store) PutCoupling(projectKey, sha, dep string, res *coupling.Dependenc
 
 // --- Metrics Base (LOC, Types, Interfaces, Comments) ---
 
+const metricsBaseSchemaVersion int32 = 2
+
 func (s *Store) GetMetricsBase(projectKey, sha string) (*MetricsBase, bool) {
 	var pb cachepb.MetricsBaseCacheProto
 	if !s.GetProto("metrics", fmt.Sprintf("%s@%s", projectKey, sha), &pb) {
+		return nil, false
+	}
+	if pb.GetSchemaVersion() < metricsBaseSchemaVersion {
 		return nil, false
 	}
 
@@ -399,6 +423,12 @@ func (s *Store) GetMetricsBase(projectKey, sha string) (*MetricsBase, bool) {
 		}
 	}
 
+	if pb.GetFunctions() == nil {
+		return nil, false
+	}
+
+	funcMetrics := fromFunctionMetricsProto(pb.GetFunctions())
+
 	return &MetricsBase{
 		LOC: &loc.ProjectLOC{
 			Total:    int(pb.GetLocTotal()),
@@ -409,6 +439,7 @@ func (s *Store) GetMetricsBase(projectKey, sha string) (*MetricsBase, bool) {
 		Interfaces: ifaceMetrics,
 		Comments:   commMetrics,
 		Tests:      testMetrics,
+		Functions:  funcMetrics,
 	}, true
 }
 
@@ -482,9 +513,69 @@ func (s *Store) PutMetricsBase(projectKey, sha string, m *MetricsBase) error {
 			FilesWithComments:      int32(m.Comments.FilesWithComments),
 			FilesWithCommentsRatio: m.Comments.FilesWithCommentsRatio,
 		},
-		Tests: toTestMetricsProto(m.Tests),
+		Tests:         toTestMetricsProto(m.Tests),
+		Functions:     toFunctionMetricsProto(m.Functions),
+		SchemaVersion: metricsBaseSchemaVersion,
 	}
 	return s.PutProto("metrics", fmt.Sprintf("%s@%s", projectKey, sha), pb)
+}
+
+func toFunctionMetricsProto(f *FunctionMetrics) *cachepb.FunctionMetricsProto {
+	if f == nil {
+		return nil
+	}
+	return &cachepb.FunctionMetricsProto{
+		Total:          int32(f.Total),
+		AverageLoc:     f.AverageLOC,
+		MaxLoc:         int32(f.MaxLOC),
+		AverageParams:  f.AverageParams,
+		MaxParams:      int32(f.MaxParams),
+		LongFunctions:  toFunctionDetailProtos(f.LongFunctions),
+		HighParamFuncs: toFunctionDetailProtos(f.HighParamFuncs),
+	}
+}
+
+func fromFunctionMetricsProto(pb *cachepb.FunctionMetricsProto) *FunctionMetrics {
+	if pb == nil {
+		return nil
+	}
+	return &FunctionMetrics{
+		Total:          int(pb.GetTotal()),
+		AverageLOC:     pb.GetAverageLoc(),
+		MaxLOC:         int(pb.GetMaxLoc()),
+		AverageParams:  pb.GetAverageParams(),
+		MaxParams:      int(pb.GetMaxParams()),
+		LongFunctions:  fromFunctionDetailProtos(pb.GetLongFunctions()),
+		HighParamFuncs: fromFunctionDetailProtos(pb.GetHighParamFuncs()),
+	}
+}
+
+func toFunctionDetailProtos(items []FunctionDetail) []*cachepb.FunctionDetailProto {
+	out := make([]*cachepb.FunctionDetailProto, 0, len(items))
+	for _, it := range items {
+		out = append(out, &cachepb.FunctionDetailProto{
+			Package: it.Package,
+			File:    it.File,
+			Name:    it.Name,
+			Loc:     int32(it.LOC),
+			Params:  int32(it.Params),
+		})
+	}
+	return out
+}
+
+func fromFunctionDetailProtos(items []*cachepb.FunctionDetailProto) []FunctionDetail {
+	out := make([]FunctionDetail, 0, len(items))
+	for _, it := range items {
+		out = append(out, FunctionDetail{
+			Package: it.GetPackage(),
+			File:    it.GetFile(),
+			Name:    it.GetName(),
+			LOC:     int(it.GetLoc()),
+			Params:  int(it.GetParams()),
+		})
+	}
+	return out
 }
 
 func toTestMetricsProto(t *TestMetrics) *cachepb.TestMetricsProto {

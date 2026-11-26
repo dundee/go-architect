@@ -94,4 +94,14 @@ func TestAdd(t *testing.T) {
 
 	require.NotEmpty(t, res.Complexity.Cyclomatic.ComplexityDetails)
 	require.Equal(t, "main", res.Complexity.Cyclomatic.ComplexityDetails[0].Function)
+
+	require.NotNil(t, res.Base.Functions)
+	require.Equal(t, 3, res.Base.Functions.Total)
+	require.Equal(t, 3.0, res.Base.Functions.AverageLOC)
+	require.Equal(t, 5, res.Base.Functions.MaxLOC)
+	require.Equal(t, 0.67, res.Base.Functions.AverageParams)
+	require.Equal(t, 2, res.Base.Functions.MaxParams)
+	require.Equal(t, "main", res.Base.Functions.LongFunctions[0].Name)
+	require.Len(t, res.Base.Functions.HighParamFuncs, 1)
+	require.Equal(t, "Add", res.Base.Functions.HighParamFuncs[0].Name)
 }

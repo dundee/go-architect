@@ -31,6 +31,8 @@ func NewCacheFromStore(store *cache.Store) *Cache {
 	return &Cache{store: store}
 }
 
+const snapshotSchemaVersion int32 = 2
+
 func (c *Cache) GetSnapshot(projectKey, sha string) (*CommitSnapshot, bool) {
 	if c == nil || c.store == nil {
 		return nil, false
@@ -40,6 +42,9 @@ func (c *Cache) GetSnapshot(projectKey, sha string) (*CommitSnapshot, bool) {
 		return nil, false
 	}
 	m := pb.GetMetrics()
+	if m == nil || m.GetSchemaVersion() < snapshotSchemaVersion {
+		return nil, false
+	}
 	return &CommitSnapshot{
 		CommitSHA: pb.GetCommitSha(),
 		ShortSHA:  pb.GetShortSha(),
@@ -63,6 +68,8 @@ func (c *Cache) GetSnapshot(projectKey, sha string) (*CommitSnapshot, bool) {
 			TestLOC:                int(m.GetTestLoc()),
 			TestFiles:              int(m.GetTestFiles()),
 			TestFunctions:          int(m.GetTestFunctions()),
+			AvgFunctionLOC:         m.GetAvgFunctionLoc(),
+			AvgFunctionParams:      m.GetAvgFunctionParams(),
 		},
 	}, true
 }
@@ -94,6 +101,9 @@ func (c *Cache) PutSnapshot(projectKey string, snap CommitSnapshot) error {
 			TestLoc:                int32(snap.Metrics.TestLOC),
 			TestFiles:              int32(snap.Metrics.TestFiles),
 			TestFunctions:          int32(snap.Metrics.TestFunctions),
+			AvgFunctionLoc:         snap.Metrics.AvgFunctionLOC,
+			AvgFunctionParams:      snap.Metrics.AvgFunctionParams,
+			SchemaVersion:          snapshotSchemaVersion,
 		},
 	}
 	return c.store.PutProto("trends", fmt.Sprintf("%s@%s", projectKey, snap.CommitSHA), pb)

@@ -8,6 +8,7 @@ import {
   Copy,
   FileText,
   FlaskConical,
+  FunctionSquare,
   Gauge,
   Loader2,
   MessageSquareText,
@@ -410,6 +411,126 @@ export function MetricsView({ project, refreshSignal }: MetricsViewProps) {
                     </li>
                   ))}
                 </ul>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Function Length & Parameter Count */}
+      {data.functions && (
+        <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-xs">
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+            <h2 className="flex items-center gap-2 text-sm font-semibold text-slate-900">
+              <FunctionSquare className="h-4 w-4 text-violet-600" />
+              Function Length &amp; Parameters
+            </h2>
+            <div className="flex flex-wrap items-center gap-2 text-xs">
+              <span className="rounded-full bg-violet-50 px-2.5 py-0.5 font-mono font-semibold text-violet-800 ring-1 ring-violet-600/20">
+                Avg {data.functions.average_loc.toFixed(1)} LOC
+              </span>
+              <span className="rounded-full bg-slate-100 px-2.5 py-0.5 font-mono font-semibold text-slate-700 ring-1 ring-slate-500/20">
+                Max {data.functions.max_loc} LOC
+              </span>
+              <span className="rounded-full bg-sky-50 px-2.5 py-0.5 font-mono font-semibold text-sky-800 ring-1 ring-sky-600/20">
+                Avg {data.functions.average_params.toFixed(2)} params (max{' '}
+                {data.functions.max_params})
+              </span>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
+            <div>
+              <h3 className="mb-2 text-[11px] font-semibold tracking-wider text-slate-500 uppercase">
+                Longest Functions (LOC)
+              </h3>
+              {!data.functions.long_functions ||
+              data.functions.long_functions.length === 0 ? (
+                <div className="rounded-lg border border-dashed border-slate-200 p-4 text-center text-xs text-slate-400">
+                  No functions declared
+                </div>
+              ) : (
+                <div className="overflow-auto rounded-lg border border-slate-200">
+                  <table className="w-full border-collapse text-left text-xs">
+                    <thead className="border-b border-slate-200 bg-slate-50 text-[11px] font-semibold text-slate-600 uppercase">
+                      <tr>
+                        <th className="px-3 py-2">Function</th>
+                        <th className="px-3 py-2">Package</th>
+                        <th className="px-3 py-2 text-right">LOC</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {data.functions.long_functions.map((f, idx) => (
+                        <tr key={`len-${f.package}-${f.file}-${f.name}-${idx}`}>
+                          <td className="px-3 py-2">
+                            <div className="font-mono font-semibold text-slate-900">
+                              {f.name}
+                            </div>
+                            <div className="font-mono text-[10px] text-slate-400">
+                              {f.file}
+                            </div>
+                          </td>
+                          <td
+                            className="max-w-[160px] truncate px-3 py-2 font-mono text-slate-600"
+                            title={f.package}
+                          >
+                            {shortenPackageName(f.package, mainPkg)}
+                          </td>
+                          <td className="px-3 py-2 text-right font-mono font-bold text-slate-900">
+                            {f.loc}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+
+            <div>
+              <h3 className="mb-2 text-[11px] font-semibold tracking-wider text-slate-500 uppercase">
+                Most Parameters
+              </h3>
+              {!data.functions.high_param_funcs ||
+              data.functions.high_param_funcs.length === 0 ? (
+                <div className="rounded-lg border border-dashed border-slate-200 p-4 text-center text-xs text-slate-400">
+                  No functions with parameters
+                </div>
+              ) : (
+                <div className="overflow-auto rounded-lg border border-slate-200">
+                  <table className="w-full border-collapse text-left text-xs">
+                    <thead className="border-b border-slate-200 bg-slate-50 text-[11px] font-semibold text-slate-600 uppercase">
+                      <tr>
+                        <th className="px-3 py-2">Function</th>
+                        <th className="px-3 py-2">Package</th>
+                        <th className="px-3 py-2 text-right">Params</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {data.functions.high_param_funcs.map((f, idx) => (
+                        <tr key={`prm-${f.package}-${f.file}-${f.name}-${idx}`}>
+                          <td className="px-3 py-2">
+                            <div className="font-mono font-semibold text-slate-900">
+                              {f.name}
+                            </div>
+                            <div className="font-mono text-[10px] text-slate-400">
+                              {f.file}
+                            </div>
+                          </td>
+                          <td
+                            className="max-w-[160px] truncate px-3 py-2 font-mono text-slate-600"
+                            title={f.package}
+                          >
+                            {shortenPackageName(f.package, mainPkg)}
+                          </td>
+                          <td className="px-3 py-2 text-right font-mono font-bold text-slate-900">
+                            {f.params}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
               )}
             </div>
           </div>

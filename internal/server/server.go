@@ -19,6 +19,7 @@ import (
 	"github.com/dundee/go-architect/internal/arch"
 	"github.com/dundee/go-architect/internal/cache"
 	"github.com/dundee/go-architect/internal/complexity"
+	"github.com/dundee/go-architect/internal/hotspots"
 	"github.com/dundee/go-architect/internal/metrics"
 	"github.com/dundee/go-architect/internal/trends"
 	"github.com/go-architect/go-architect-lib/coupling"
@@ -84,6 +85,7 @@ type MetricsResponse struct {
 	Interfaces           *interfaces.InterfaceMetrics `json:"interfaces"`
 	Comments             *comments.CommentsMetrics    `json:"comments"`
 	Tests                *cache.TestMetrics           `json:"tests"`
+	Functions            *cache.FunctionMetrics       `json:"functions"`
 	CyclomaticComplexity ComplexityResult             `json:"cyclomatic_complexity"`
 	CognitiveComplexity  ComplexityResult             `json:"cognitive_complexity"`
 	Cached               bool                         `json:"cached"`
@@ -95,6 +97,14 @@ type VCSResponse struct {
 	Months     int                  `json:"months"`
 	Cached     bool                 `json:"cached"`
 	DurationMs int64                `json:"duration_ms"`
+}
+
+type HotspotsResponse struct {
+	Hotspots   []hotspots.FileHotspot `json:"hotspots"`
+	TotalFiles int                    `json:"total_files"`
+	Months     int                    `json:"months"`
+	Cached     bool                   `json:"cached"`
+	DurationMs int64                  `json:"duration_ms"`
 }
 
 type ErrorResponse struct {
@@ -244,6 +254,7 @@ func (s *Server) registerRoutes() {
 	s.mux.HandleFunc("GET /api/coupling", s.handleGetCoupling)
 	s.mux.HandleFunc("GET /api/metrics", s.handleGetMetrics)
 	s.mux.HandleFunc("GET /api/vcs", s.handleGetVCS)
+	s.mux.HandleFunc("GET /api/hotspots", s.handleGetHotspots)
 	s.mux.HandleFunc("GET /api/trends", s.handleGetTrends)
 	s.mux.HandleFunc("GET /api/trends/stream", s.handleGetTrendsStream)
 	s.mux.HandleFunc("/", s.handleSPA)
@@ -540,6 +551,7 @@ func (s *Server) handleGetMetrics(w http.ResponseWriter, r *http.Request) {
 		Interfaces:           baseMetrics.Interfaces,
 		Comments:             baseMetrics.Comments,
 		Tests:                baseMetrics.Tests,
+		Functions:            baseMetrics.Functions,
 		CyclomaticComplexity: cycloRes,
 		CognitiveComplexity:  cognitRes,
 		Cached:               baseCached && compCached,
@@ -547,53 +559,40 @@ func (s *Server) handleGetMetrics(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-func (s *Server) handleGetVCS(w http.ResponseWriter, r *http.Request) {
-	proj := s.currentProjectSnapshot()
-	if proj == nil {
-		writeError(w, http.StatusBadRequest, "no Go project is loaded")
-		return
+func parseMonthsQuery(r *http.Request, defaultMonths int) (int, error) {
+	raw := strings.TrimSpace(r.URL.Query().Get("months"))
+	if raw == "" {
+		return defaultMonths, nil
 	}
-
-	months := 6
-	if raw := strings.TrimSpace(r.URL.Query().Get("months")); raw != "" {
-		parsed, err := strconv.Atoi(raw)
-		if err != nil || parsed < 0 {
-			writeError(w, http.StatusBadRequest, "query parameter 'months' must be a non-negative integer")
-			return
-		}
-		months = parsed
+	parsed, err := strconv.Atoi(raw)
+	if err != nil || parsed < 0 {
+		return 0, fmt.Errorf("query parameter 'months' must be a non-negative integer")
 	}
+	return parsed, nil
+}
 
-	start := time.Now()
+func sinceForMonths(months int) time.Time {
+	if months == 0 {
+		return time.Date(1970, 1, 1, 0, 0, 0, 0, time.UTC)
+	}
+	return time.Now().AddDate(0, -months, 0)
+}
+
+func (s *Server) loadVCSInfo(proj *project.ProjectInfo, cc cacheContext, months int) (*git.VCSAnalysisInfo, bool, error) {
 	dayKey := time.Now().UTC().Format("2006-01-02")
-	cc := s.resolveCacheContext(r.Context(), proj, r)
 	if cc.canRead {
 		if cached, ok := s.cacheStore.GetVCS(cc.complexityKey, cc.sha, months, dayKey); ok {
-			writeJSON(w, http.StatusOK, VCSResponse{
-				VCS:        cached,
-				Months:     months,
-				Cached:     true,
-				DurationMs: time.Since(start).Milliseconds(),
-			})
-			return
+			return cached, true, nil
 		}
 	}
 
-	var since time.Time
-	if months == 0 {
-		since = time.Date(1970, 1, 1, 0, 0, 0, 0, time.UTC)
-	} else {
-		since = time.Now().AddDate(0, -months, 0)
-	}
-
+	since := sinceForMonths(months)
 	vcsInfo, err := git.LoadRepositoryTeamCohesion(proj.Path, &since)
 	if err != nil {
-		writeError(w, http.StatusBadRequest, fmt.Sprintf("analyze Git repository: %v", err))
-		return
+		return nil, false, err
 	}
 	if vcsInfo == nil {
-		writeError(w, http.StatusInternalServerError, "empty VCS analysis result")
-		return
+		return nil, false, errors.New("empty VCS analysis result")
 	}
 	if vcsInfo.AuthorsInfo.AuthorDetails == nil {
 		vcsInfo.AuthorsInfo.AuthorDetails = []git.AuthorInfo{}
@@ -608,11 +607,70 @@ func (s *Server) handleGetVCS(w http.ResponseWriter, r *http.Request) {
 	if cc.canWrite {
 		_ = s.cacheStore.PutVCS(cc.complexityKey, cc.sha, months, dayKey, vcsInfo)
 	}
+	return vcsInfo, false, nil
+}
+
+func (s *Server) handleGetVCS(w http.ResponseWriter, r *http.Request) {
+	proj := s.currentProjectSnapshot()
+	if proj == nil {
+		writeError(w, http.StatusBadRequest, "no Go project is loaded")
+		return
+	}
+
+	months, err := parseMonthsQuery(r, 6)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	start := time.Now()
+	cc := s.resolveCacheContext(r.Context(), proj, r)
+	vcsInfo, cached, err := s.loadVCSInfo(proj, cc, months)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, fmt.Sprintf("analyze Git repository: %v", err))
+		return
+	}
 
 	writeJSON(w, http.StatusOK, VCSResponse{
 		VCS:        vcsInfo,
 		Months:     months,
-		Cached:     false,
+		Cached:     cached,
+		DurationMs: time.Since(start).Milliseconds(),
+	})
+}
+
+func (s *Server) handleGetHotspots(w http.ResponseWriter, r *http.Request) {
+	proj := s.currentProjectSnapshot()
+	if proj == nil {
+		writeError(w, http.StatusBadRequest, "no Go project is loaded")
+		return
+	}
+
+	months, err := parseMonthsQuery(r, 6)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	start := time.Now()
+	cc := s.resolveCacheContext(r.Context(), proj, r)
+	vcsInfo, vcsCached, err := s.loadVCSInfo(proj, cc, months)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, fmt.Sprintf("analyze Git repository: %v", err))
+		return
+	}
+
+	report, err := hotspots.Analyze(r.Context(), proj, vcsInfo, sinceForMonths(months))
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, fmt.Sprintf("calculate hotspots: %v", err))
+		return
+	}
+
+	writeJSON(w, http.StatusOK, HotspotsResponse{
+		Hotspots:   report.Hotspots,
+		TotalFiles: report.TotalFiles,
+		Months:     months,
+		Cached:     vcsCached,
 		DurationMs: time.Since(start).Milliseconds(),
 	})
 }

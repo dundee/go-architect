@@ -180,12 +180,31 @@ export interface TestMetrics {
   largest_files: FileLOC[] | null
 }
 
+export interface FunctionDetail {
+  package: string
+  file: string
+  name: string
+  loc: number
+  params: number
+}
+
+export interface FunctionMetrics {
+  total: number
+  average_loc: number
+  max_loc: number
+  average_params: number
+  max_params: number
+  long_functions: FunctionDetail[] | null
+  high_param_funcs: FunctionDetail[] | null
+}
+
 export interface MetricsResponse {
   loc: ProjectLOC
   types: ProjectTypes
   interfaces: InterfaceMetrics
   comments: CommentsMetrics
   tests: TestMetrics | null
+  functions: FunctionMetrics | null
   cyclomatic_complexity: ComplexityResult
   cognitive_complexity: ComplexityResult
   cached?: boolean
@@ -234,6 +253,28 @@ export interface VCSResponse {
   duration_ms: number
 }
 
+export interface FileHotspot {
+  file: string
+  package: string
+  loc: number
+  commits: number
+  churn: number
+  contributors: number
+  cyclomatic_complexity: number
+  cognitive_complexity: number
+  max_cyclomatic: number
+  max_cognitive: number
+  score: number
+}
+
+export interface HotspotsResponse {
+  hotspots: FileHotspot[]
+  total_files: number
+  months: number
+  cached?: boolean
+  duration_ms: number
+}
+
 export type SamplingMode = 'buckets' | 'tags'
 
 export interface SnapshotMetrics {
@@ -253,6 +294,8 @@ export interface SnapshotMetrics {
   test_loc: number
   test_files: number
   test_functions: number
+  avg_function_loc: number
+  avg_function_params: number
   cyclomatic_complexity_avg?: number
   cognitive_complexity_avg?: number
 }

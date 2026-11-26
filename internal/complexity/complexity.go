@@ -1,10 +1,13 @@
 package complexity
 
 import (
+	"bytes"
 	"fmt"
+	"go/build"
 	"go/parser"
 	"go/token"
 	"io/fs"
+	"os"
 	"path"
 	"path/filepath"
 	"runtime"
@@ -31,6 +34,17 @@ type Detail struct {
 type Report struct {
 	Cyclomatic Output
 	Cognitive  Output
+}
+
+type FileStats struct {
+	Package         string
+	RelFile         string
+	LOC             int
+	CyclomaticTotal int
+	CognitiveTotal  int
+	MaxCyclomatic   int
+	MaxCognitive    int
+	Functions       int
 }
 
 type workerResult struct {
@@ -194,4 +208,144 @@ func Summarize(all []Detail, sum, topN int) Output {
 		AverageComplexity: float64(sum) / float64(len(all)),
 		ComplexityDetails: all[:limit],
 	}
+}
+
+func CalculatePerFile(projectPath, mainPackage string) (map[string]FileStats, error) {
+	absRoot, err := filepath.Abs(projectPath)
+	if err != nil {
+		return nil, fmt.Errorf("resolve project path: %w", err)
+	}
+
+	buildCtx := build.Default
+	var files []string
+	walkErr := filepath.WalkDir(absRoot, func(filePath string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+
+		name := d.Name()
+		if d.IsDir() {
+			if filePath != absRoot && (strings.HasPrefix(name, ".") || name == "vendor" || name == "node_modules" || name == "testdata") {
+				return filepath.SkipDir
+			}
+			return nil
+		}
+
+		if !strings.HasSuffix(name, ".go") || strings.HasSuffix(name, "_test.go") {
+			return nil
+		}
+
+		ok, matchErr := buildCtx.MatchFile(filepath.Dir(filePath), name)
+		if matchErr != nil || !ok {
+			return nil
+		}
+
+		files = append(files, filePath)
+		return nil
+	})
+	if walkErr != nil {
+		return nil, fmt.Errorf("walk project files: %w", walkErr)
+	}
+
+	if len(files) == 0 {
+		return map[string]FileStats{}, nil
+	}
+
+	workers := runtime.GOMAXPROCS(0)
+	if workers < 1 {
+		workers = 1
+	}
+	if workers > len(files) {
+		workers = len(files)
+	}
+
+	jobs := make(chan string, len(files))
+	for _, f := range files {
+		jobs <- f
+	}
+	close(jobs)
+
+	results := make([][]FileStats, workers)
+	var wg sync.WaitGroup
+	wg.Add(workers)
+	for w := 0; w < workers; w++ {
+		go func(workerID int) {
+			defer wg.Done()
+			var local []FileStats
+			for filePath := range jobs {
+				if fsItem, ok := processFileStats(absRoot, filePath, mainPackage); ok {
+					local = append(local, fsItem)
+				}
+			}
+			results[workerID] = local
+		}(w)
+	}
+	wg.Wait()
+
+	out := make(map[string]FileStats, len(files))
+	for _, batch := range results {
+		for _, item := range batch {
+			out[item.RelFile] = item
+		}
+	}
+	return out, nil
+}
+
+func processFileStats(absRoot, filePath, mainPackage string) (FileStats, bool) {
+	data, err := os.ReadFile(filePath)
+	if err != nil {
+		return FileStats{}, false
+	}
+
+	fset := token.NewFileSet()
+	astFile, parseErr := parser.ParseFile(fset, filepath.Base(filePath), data, 0)
+	if parseErr != nil {
+		return FileStats{}, false
+	}
+
+	pkgLabel := resolvePackageName(absRoot, filePath, mainPackage, astFile.Name.Name)
+	relFile, relErr := filepath.Rel(absRoot, filePath)
+	if relErr != nil {
+		relFile = filepath.Base(filePath)
+	}
+	relFileSlash := filepath.ToSlash(relFile)
+
+	out := FileStats{
+		Package: pkgLabel,
+		RelFile: relFileSlash,
+		LOC:     countLinesBytes(data),
+	}
+
+	cStats := gocyclo.AnalyzeASTFile(astFile, fset, nil)
+	out.Functions = len(cStats)
+	for _, st := range cStats {
+		out.CyclomaticTotal += st.Complexity
+		if st.Complexity > out.MaxCyclomatic {
+			out.MaxCyclomatic = st.Complexity
+		}
+	}
+
+	gStats := gocognit.ComplexityStats(astFile, fset, nil)
+	if len(gStats) > out.Functions {
+		out.Functions = len(gStats)
+	}
+	for _, st := range gStats {
+		out.CognitiveTotal += st.Complexity
+		if st.Complexity > out.MaxCognitive {
+			out.MaxCognitive = st.Complexity
+		}
+	}
+
+	return out, true
+}
+
+func countLinesBytes(data []byte) int {
+	if len(data) == 0 {
+		return 0
+	}
+	count := bytes.Count(data, []byte{'\n'})
+	if count == 0 {
+		return 0
+	}
+	return count + 1
 }

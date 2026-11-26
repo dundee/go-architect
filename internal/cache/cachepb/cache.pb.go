@@ -39,6 +39,9 @@ type SnapshotMetricsProto struct {
 	TestLoc                int32                  `protobuf:"varint,14,opt,name=test_loc,json=testLoc,proto3" json:"test_loc,omitempty"`
 	TestFiles              int32                  `protobuf:"varint,15,opt,name=test_files,json=testFiles,proto3" json:"test_files,omitempty"`
 	TestFunctions          int32                  `protobuf:"varint,16,opt,name=test_functions,json=testFunctions,proto3" json:"test_functions,omitempty"`
+	AvgFunctionLoc         float64                `protobuf:"fixed64,17,opt,name=avg_function_loc,json=avgFunctionLoc,proto3" json:"avg_function_loc,omitempty"`
+	AvgFunctionParams      float64                `protobuf:"fixed64,18,opt,name=avg_function_params,json=avgFunctionParams,proto3" json:"avg_function_params,omitempty"`
+	SchemaVersion          int32                  `protobuf:"varint,19,opt,name=schema_version,json=schemaVersion,proto3" json:"schema_version,omitempty"`
 	unknownFields          protoimpl.UnknownFields
 	sizeCache              protoimpl.SizeCache
 }
@@ -181,6 +184,27 @@ func (x *SnapshotMetricsProto) GetTestFiles() int32 {
 func (x *SnapshotMetricsProto) GetTestFunctions() int32 {
 	if x != nil {
 		return x.TestFunctions
+	}
+	return 0
+}
+
+func (x *SnapshotMetricsProto) GetAvgFunctionLoc() float64 {
+	if x != nil {
+		return x.AvgFunctionLoc
+	}
+	return 0
+}
+
+func (x *SnapshotMetricsProto) GetAvgFunctionParams() float64 {
+	if x != nil {
+		return x.AvgFunctionParams
+	}
+	return 0
+}
+
+func (x *SnapshotMetricsProto) GetSchemaVersion() int32 {
+	if x != nil {
+		return x.SchemaVersion
 	}
 	return 0
 }
@@ -1717,6 +1741,174 @@ func (x *TestMetricsProto) GetLargestFiles() []*FileLOCProto {
 	return nil
 }
 
+type FunctionDetailProto struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Package       string                 `protobuf:"bytes,1,opt,name=package,proto3" json:"package,omitempty"`
+	File          string                 `protobuf:"bytes,2,opt,name=file,proto3" json:"file,omitempty"`
+	Name          string                 `protobuf:"bytes,3,opt,name=name,proto3" json:"name,omitempty"`
+	Loc           int32                  `protobuf:"varint,4,opt,name=loc,proto3" json:"loc,omitempty"`
+	Params        int32                  `protobuf:"varint,5,opt,name=params,proto3" json:"params,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *FunctionDetailProto) Reset() {
+	*x = FunctionDetailProto{}
+	mi := &file_cache_proto_msgTypes[24]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *FunctionDetailProto) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*FunctionDetailProto) ProtoMessage() {}
+
+func (x *FunctionDetailProto) ProtoReflect() protoreflect.Message {
+	mi := &file_cache_proto_msgTypes[24]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use FunctionDetailProto.ProtoReflect.Descriptor instead.
+func (*FunctionDetailProto) Descriptor() ([]byte, []int) {
+	return file_cache_proto_rawDescGZIP(), []int{24}
+}
+
+func (x *FunctionDetailProto) GetPackage() string {
+	if x != nil {
+		return x.Package
+	}
+	return ""
+}
+
+func (x *FunctionDetailProto) GetFile() string {
+	if x != nil {
+		return x.File
+	}
+	return ""
+}
+
+func (x *FunctionDetailProto) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *FunctionDetailProto) GetLoc() int32 {
+	if x != nil {
+		return x.Loc
+	}
+	return 0
+}
+
+func (x *FunctionDetailProto) GetParams() int32 {
+	if x != nil {
+		return x.Params
+	}
+	return 0
+}
+
+type FunctionMetricsProto struct {
+	state          protoimpl.MessageState `protogen:"open.v1"`
+	Total          int32                  `protobuf:"varint,1,opt,name=total,proto3" json:"total,omitempty"`
+	AverageLoc     float64                `protobuf:"fixed64,2,opt,name=average_loc,json=averageLoc,proto3" json:"average_loc,omitempty"`
+	MaxLoc         int32                  `protobuf:"varint,3,opt,name=max_loc,json=maxLoc,proto3" json:"max_loc,omitempty"`
+	AverageParams  float64                `protobuf:"fixed64,4,opt,name=average_params,json=averageParams,proto3" json:"average_params,omitempty"`
+	MaxParams      int32                  `protobuf:"varint,5,opt,name=max_params,json=maxParams,proto3" json:"max_params,omitempty"`
+	LongFunctions  []*FunctionDetailProto `protobuf:"bytes,6,rep,name=long_functions,json=longFunctions,proto3" json:"long_functions,omitempty"`
+	HighParamFuncs []*FunctionDetailProto `protobuf:"bytes,7,rep,name=high_param_funcs,json=highParamFuncs,proto3" json:"high_param_funcs,omitempty"`
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
+}
+
+func (x *FunctionMetricsProto) Reset() {
+	*x = FunctionMetricsProto{}
+	mi := &file_cache_proto_msgTypes[25]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *FunctionMetricsProto) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*FunctionMetricsProto) ProtoMessage() {}
+
+func (x *FunctionMetricsProto) ProtoReflect() protoreflect.Message {
+	mi := &file_cache_proto_msgTypes[25]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use FunctionMetricsProto.ProtoReflect.Descriptor instead.
+func (*FunctionMetricsProto) Descriptor() ([]byte, []int) {
+	return file_cache_proto_rawDescGZIP(), []int{25}
+}
+
+func (x *FunctionMetricsProto) GetTotal() int32 {
+	if x != nil {
+		return x.Total
+	}
+	return 0
+}
+
+func (x *FunctionMetricsProto) GetAverageLoc() float64 {
+	if x != nil {
+		return x.AverageLoc
+	}
+	return 0
+}
+
+func (x *FunctionMetricsProto) GetMaxLoc() int32 {
+	if x != nil {
+		return x.MaxLoc
+	}
+	return 0
+}
+
+func (x *FunctionMetricsProto) GetAverageParams() float64 {
+	if x != nil {
+		return x.AverageParams
+	}
+	return 0
+}
+
+func (x *FunctionMetricsProto) GetMaxParams() int32 {
+	if x != nil {
+		return x.MaxParams
+	}
+	return 0
+}
+
+func (x *FunctionMetricsProto) GetLongFunctions() []*FunctionDetailProto {
+	if x != nil {
+		return x.LongFunctions
+	}
+	return nil
+}
+
+func (x *FunctionMetricsProto) GetHighParamFuncs() []*FunctionDetailProto {
+	if x != nil {
+		return x.HighParamFuncs
+	}
+	return nil
+}
+
 type MetricsBaseCacheProto struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	LocTotal      int32                  `protobuf:"varint,1,opt,name=loc_total,json=locTotal,proto3" json:"loc_total,omitempty"`
@@ -1726,13 +1918,15 @@ type MetricsBaseCacheProto struct {
 	Interfaces    *InterfaceMetricsProto `protobuf:"bytes,5,opt,name=interfaces,proto3" json:"interfaces,omitempty"`
 	Comments      *CommentsMetricsProto  `protobuf:"bytes,6,opt,name=comments,proto3" json:"comments,omitempty"`
 	Tests         *TestMetricsProto      `protobuf:"bytes,7,opt,name=tests,proto3" json:"tests,omitempty"`
+	Functions     *FunctionMetricsProto  `protobuf:"bytes,8,opt,name=functions,proto3" json:"functions,omitempty"`
+	SchemaVersion int32                  `protobuf:"varint,9,opt,name=schema_version,json=schemaVersion,proto3" json:"schema_version,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *MetricsBaseCacheProto) Reset() {
 	*x = MetricsBaseCacheProto{}
-	mi := &file_cache_proto_msgTypes[24]
+	mi := &file_cache_proto_msgTypes[26]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1744,7 +1938,7 @@ func (x *MetricsBaseCacheProto) String() string {
 func (*MetricsBaseCacheProto) ProtoMessage() {}
 
 func (x *MetricsBaseCacheProto) ProtoReflect() protoreflect.Message {
-	mi := &file_cache_proto_msgTypes[24]
+	mi := &file_cache_proto_msgTypes[26]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1757,7 +1951,7 @@ func (x *MetricsBaseCacheProto) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MetricsBaseCacheProto.ProtoReflect.Descriptor instead.
 func (*MetricsBaseCacheProto) Descriptor() ([]byte, []int) {
-	return file_cache_proto_rawDescGZIP(), []int{24}
+	return file_cache_proto_rawDescGZIP(), []int{26}
 }
 
 func (x *MetricsBaseCacheProto) GetLocTotal() int32 {
@@ -1809,6 +2003,20 @@ func (x *MetricsBaseCacheProto) GetTests() *TestMetricsProto {
 	return nil
 }
 
+func (x *MetricsBaseCacheProto) GetFunctions() *FunctionMetricsProto {
+	if x != nil {
+		return x.Functions
+	}
+	return nil
+}
+
+func (x *MetricsBaseCacheProto) GetSchemaVersion() int32 {
+	if x != nil {
+		return x.SchemaVersion
+	}
+	return 0
+}
+
 type AuthorInfoProto struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Name          string                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
@@ -1820,7 +2028,7 @@ type AuthorInfoProto struct {
 
 func (x *AuthorInfoProto) Reset() {
 	*x = AuthorInfoProto{}
-	mi := &file_cache_proto_msgTypes[25]
+	mi := &file_cache_proto_msgTypes[27]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1832,7 +2040,7 @@ func (x *AuthorInfoProto) String() string {
 func (*AuthorInfoProto) ProtoMessage() {}
 
 func (x *AuthorInfoProto) ProtoReflect() protoreflect.Message {
-	mi := &file_cache_proto_msgTypes[25]
+	mi := &file_cache_proto_msgTypes[27]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1845,7 +2053,7 @@ func (x *AuthorInfoProto) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AuthorInfoProto.ProtoReflect.Descriptor instead.
 func (*AuthorInfoProto) Descriptor() ([]byte, []int) {
-	return file_cache_proto_rawDescGZIP(), []int{25}
+	return file_cache_proto_rawDescGZIP(), []int{27}
 }
 
 func (x *AuthorInfoProto) GetName() string {
@@ -1879,7 +2087,7 @@ type ContributorSummaryProto struct {
 
 func (x *ContributorSummaryProto) Reset() {
 	*x = ContributorSummaryProto{}
-	mi := &file_cache_proto_msgTypes[26]
+	mi := &file_cache_proto_msgTypes[28]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1891,7 +2099,7 @@ func (x *ContributorSummaryProto) String() string {
 func (*ContributorSummaryProto) ProtoMessage() {}
 
 func (x *ContributorSummaryProto) ProtoReflect() protoreflect.Message {
-	mi := &file_cache_proto_msgTypes[26]
+	mi := &file_cache_proto_msgTypes[28]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1904,7 +2112,7 @@ func (x *ContributorSummaryProto) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ContributorSummaryProto.ProtoReflect.Descriptor instead.
 func (*ContributorSummaryProto) Descriptor() ([]byte, []int) {
-	return file_cache_proto_rawDescGZIP(), []int{26}
+	return file_cache_proto_rawDescGZIP(), []int{28}
 }
 
 func (x *ContributorSummaryProto) GetName() string {
@@ -1932,7 +2140,7 @@ type ModificationsInfoProto struct {
 
 func (x *ModificationsInfoProto) Reset() {
 	*x = ModificationsInfoProto{}
-	mi := &file_cache_proto_msgTypes[27]
+	mi := &file_cache_proto_msgTypes[29]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1944,7 +2152,7 @@ func (x *ModificationsInfoProto) String() string {
 func (*ModificationsInfoProto) ProtoMessage() {}
 
 func (x *ModificationsInfoProto) ProtoReflect() protoreflect.Message {
-	mi := &file_cache_proto_msgTypes[27]
+	mi := &file_cache_proto_msgTypes[29]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1957,7 +2165,7 @@ func (x *ModificationsInfoProto) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ModificationsInfoProto.ProtoReflect.Descriptor instead.
 func (*ModificationsInfoProto) Descriptor() ([]byte, []int) {
-	return file_cache_proto_rawDescGZIP(), []int{27}
+	return file_cache_proto_rawDescGZIP(), []int{29}
 }
 
 func (x *ModificationsInfoProto) GetSource() string {
@@ -1996,7 +2204,7 @@ type VCSCacheProto struct {
 
 func (x *VCSCacheProto) Reset() {
 	*x = VCSCacheProto{}
-	mi := &file_cache_proto_msgTypes[28]
+	mi := &file_cache_proto_msgTypes[30]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2008,7 +2216,7 @@ func (x *VCSCacheProto) String() string {
 func (*VCSCacheProto) ProtoMessage() {}
 
 func (x *VCSCacheProto) ProtoReflect() protoreflect.Message {
-	mi := &file_cache_proto_msgTypes[28]
+	mi := &file_cache_proto_msgTypes[30]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2021,7 +2229,7 @@ func (x *VCSCacheProto) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use VCSCacheProto.ProtoReflect.Descriptor instead.
 func (*VCSCacheProto) Descriptor() ([]byte, []int) {
-	return file_cache_proto_rawDescGZIP(), []int{28}
+	return file_cache_proto_rawDescGZIP(), []int{30}
 }
 
 func (x *VCSCacheProto) GetSinceUnixNano() int64 {
@@ -2077,7 +2285,7 @@ var File_cache_proto protoreflect.FileDescriptor
 
 const file_cache_proto_rawDesc = "" +
 	"\n" +
-	"\vcache.proto\x12\acachepb\"\xd2\x04\n" +
+	"\vcache.proto\x12\acachepb\"\xd3\x05\n" +
 	"\x14SnapshotMetricsProto\x12\x10\n" +
 	"\x03loc\x18\x01 \x01(\x05R\x03loc\x12\x1a\n" +
 	"\bpackages\x18\x02 \x01(\x05R\bpackages\x12!\n" +
@@ -2098,7 +2306,10 @@ const file_cache_proto_rawDesc = "" +
 	"\btest_loc\x18\x0e \x01(\x05R\atestLoc\x12\x1d\n" +
 	"\n" +
 	"test_files\x18\x0f \x01(\x05R\ttestFiles\x12%\n" +
-	"\x0etest_functions\x18\x10 \x01(\x05R\rtestFunctions\"\xdc\x01\n" +
+	"\x0etest_functions\x18\x10 \x01(\x05R\rtestFunctions\x12(\n" +
+	"\x10avg_function_loc\x18\x11 \x01(\x01R\x0eavgFunctionLoc\x12.\n" +
+	"\x13avg_function_params\x18\x12 \x01(\x01R\x11avgFunctionParams\x12%\n" +
+	"\x0eschema_version\x18\x13 \x01(\x05R\rschemaVersion\"\xdc\x01\n" +
 	"\x13CommitSnapshotProto\x12\x1d\n" +
 	"\n" +
 	"commit_sha\x18\x01 \x01(\tR\tcommitSha\x12\x1b\n" +
@@ -2225,7 +2436,23 @@ const file_cache_proto_rawDesc = "" +
 	"\x05files\x18\x02 \x01(\x05R\x05files\x12\x1c\n" +
 	"\tfunctions\x18\x03 \x01(\x05R\tfunctions\x12\x14\n" +
 	"\x05ratio\x18\x04 \x01(\x01R\x05ratio\x12:\n" +
-	"\rlargest_files\x18\x05 \x03(\v2\x15.cachepb.FileLOCProtoR\flargestFiles\"\x83\x03\n" +
+	"\rlargest_files\x18\x05 \x03(\v2\x15.cachepb.FileLOCProtoR\flargestFiles\"\x81\x01\n" +
+	"\x13FunctionDetailProto\x12\x18\n" +
+	"\apackage\x18\x01 \x01(\tR\apackage\x12\x12\n" +
+	"\x04file\x18\x02 \x01(\tR\x04file\x12\x12\n" +
+	"\x04name\x18\x03 \x01(\tR\x04name\x12\x10\n" +
+	"\x03loc\x18\x04 \x01(\x05R\x03loc\x12\x16\n" +
+	"\x06params\x18\x05 \x01(\x05R\x06params\"\xb9\x02\n" +
+	"\x14FunctionMetricsProto\x12\x14\n" +
+	"\x05total\x18\x01 \x01(\x05R\x05total\x12\x1f\n" +
+	"\vaverage_loc\x18\x02 \x01(\x01R\n" +
+	"averageLoc\x12\x17\n" +
+	"\amax_loc\x18\x03 \x01(\x05R\x06maxLoc\x12%\n" +
+	"\x0eaverage_params\x18\x04 \x01(\x01R\raverageParams\x12\x1d\n" +
+	"\n" +
+	"max_params\x18\x05 \x01(\x05R\tmaxParams\x12C\n" +
+	"\x0elong_functions\x18\x06 \x03(\v2\x1c.cachepb.FunctionDetailProtoR\rlongFunctions\x12F\n" +
+	"\x10high_param_funcs\x18\a \x03(\v2\x1c.cachepb.FunctionDetailProtoR\x0ehighParamFuncs\"\xe7\x03\n" +
 	"\x15MetricsBaseCacheProto\x12\x1b\n" +
 	"\tloc_total\x18\x01 \x01(\x05R\blocTotal\x12;\n" +
 	"\floc_packages\x18\x02 \x03(\v2\x18.cachepb.PackageLOCProtoR\vlocPackages\x122\n" +
@@ -2235,7 +2462,9 @@ const file_cache_proto_rawDesc = "" +
 	"interfaces\x18\x05 \x01(\v2\x1e.cachepb.InterfaceMetricsProtoR\n" +
 	"interfaces\x129\n" +
 	"\bcomments\x18\x06 \x01(\v2\x1d.cachepb.CommentsMetricsProtoR\bcomments\x12/\n" +
-	"\x05tests\x18\a \x01(\v2\x19.cachepb.TestMetricsProtoR\x05tests\"f\n" +
+	"\x05tests\x18\a \x01(\v2\x19.cachepb.TestMetricsProtoR\x05tests\x12;\n" +
+	"\tfunctions\x18\b \x01(\v2\x1d.cachepb.FunctionMetricsProtoR\tfunctions\x12%\n" +
+	"\x0eschema_version\x18\t \x01(\x05R\rschemaVersion\"f\n" +
 	"\x0fAuthorInfoProto\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12\x18\n" +
 	"\acommits\x18\x02 \x01(\x05R\acommits\x12%\n" +
@@ -2268,7 +2497,7 @@ func file_cache_proto_rawDescGZIP() []byte {
 	return file_cache_proto_rawDescData
 }
 
-var file_cache_proto_msgTypes = make([]protoimpl.MessageInfo, 30)
+var file_cache_proto_msgTypes = make([]protoimpl.MessageInfo, 32)
 var file_cache_proto_goTypes = []any{
 	(*SnapshotMetricsProto)(nil),      // 0: cachepb.SnapshotMetricsProto
 	(*CommitSnapshotProto)(nil),       // 1: cachepb.CommitSnapshotProto
@@ -2294,12 +2523,14 @@ var file_cache_proto_goTypes = []any{
 	(*InterfaceMetricsProto)(nil),     // 21: cachepb.InterfaceMetricsProto
 	(*CommentsMetricsProto)(nil),      // 22: cachepb.CommentsMetricsProto
 	(*TestMetricsProto)(nil),          // 23: cachepb.TestMetricsProto
-	(*MetricsBaseCacheProto)(nil),     // 24: cachepb.MetricsBaseCacheProto
-	(*AuthorInfoProto)(nil),           // 25: cachepb.AuthorInfoProto
-	(*ContributorSummaryProto)(nil),   // 26: cachepb.ContributorSummaryProto
-	(*ModificationsInfoProto)(nil),    // 27: cachepb.ModificationsInfoProto
-	(*VCSCacheProto)(nil),             // 28: cachepb.VCSCacheProto
-	nil,                               // 29: cachepb.DependencyGraphCacheProto.RelationsEntry
+	(*FunctionDetailProto)(nil),       // 24: cachepb.FunctionDetailProto
+	(*FunctionMetricsProto)(nil),      // 25: cachepb.FunctionMetricsProto
+	(*MetricsBaseCacheProto)(nil),     // 26: cachepb.MetricsBaseCacheProto
+	(*AuthorInfoProto)(nil),           // 27: cachepb.AuthorInfoProto
+	(*ContributorSummaryProto)(nil),   // 28: cachepb.ContributorSummaryProto
+	(*ModificationsInfoProto)(nil),    // 29: cachepb.ModificationsInfoProto
+	(*VCSCacheProto)(nil),             // 30: cachepb.VCSCacheProto
+	nil,                               // 31: cachepb.DependencyGraphCacheProto.RelationsEntry
 }
 var file_cache_proto_depIdxs = []int32{
 	0,  // 0: cachepb.CommitSnapshotProto.metrics:type_name -> cachepb.SnapshotMetricsProto
@@ -2307,7 +2538,7 @@ var file_cache_proto_depIdxs = []int32{
 	3,  // 2: cachepb.ComplexityReportProto.cyclomatic:type_name -> cachepb.ComplexityOutputProto
 	3,  // 3: cachepb.ComplexityReportProto.cognitive:type_name -> cachepb.ComplexityOutputProto
 	5,  // 4: cachepb.InstabilityCacheProto.packages:type_name -> cachepb.PackageInstabilityProto
-	29, // 5: cachepb.DependencyGraphCacheProto.relations:type_name -> cachepb.DependencyGraphCacheProto.RelationsEntry
+	31, // 5: cachepb.DependencyGraphCacheProto.relations:type_name -> cachepb.DependencyGraphCacheProto.RelationsEntry
 	9,  // 6: cachepb.DSMCacheProto.dependencies:type_name -> cachepb.Int64ListProto
 	11, // 7: cachepb.FileCouplingProto.details:type_name -> cachepb.CouplingDetailProto
 	12, // 8: cachepb.PackageCouplingProto.details:type_name -> cachepb.FileCouplingProto
@@ -2318,22 +2549,25 @@ var file_cache_proto_depIdxs = []int32{
 	20, // 13: cachepb.InterfaceMetricsProto.max_methods:type_name -> cachepb.InterfaceInfoProto
 	20, // 14: cachepb.InterfaceMetricsProto.min_methods:type_name -> cachepb.InterfaceInfoProto
 	16, // 15: cachepb.TestMetricsProto.largest_files:type_name -> cachepb.FileLOCProto
-	15, // 16: cachepb.MetricsBaseCacheProto.loc_packages:type_name -> cachepb.PackageLOCProto
-	16, // 17: cachepb.MetricsBaseCacheProto.loc_files:type_name -> cachepb.FileLOCProto
-	19, // 18: cachepb.MetricsBaseCacheProto.types:type_name -> cachepb.ProjectTypesProto
-	21, // 19: cachepb.MetricsBaseCacheProto.interfaces:type_name -> cachepb.InterfaceMetricsProto
-	22, // 20: cachepb.MetricsBaseCacheProto.comments:type_name -> cachepb.CommentsMetricsProto
-	23, // 21: cachepb.MetricsBaseCacheProto.tests:type_name -> cachepb.TestMetricsProto
-	26, // 22: cachepb.ModificationsInfoProto.authors_summary:type_name -> cachepb.ContributorSummaryProto
-	25, // 23: cachepb.VCSCacheProto.author_details:type_name -> cachepb.AuthorInfoProto
-	27, // 24: cachepb.VCSCacheProto.path_modifications:type_name -> cachepb.ModificationsInfoProto
-	27, // 25: cachepb.VCSCacheProto.file_modifications:type_name -> cachepb.ModificationsInfoProto
-	7,  // 26: cachepb.DependencyGraphCacheProto.RelationsEntry.value:type_name -> cachepb.StringListProto
-	27, // [27:27] is the sub-list for method output_type
-	27, // [27:27] is the sub-list for method input_type
-	27, // [27:27] is the sub-list for extension type_name
-	27, // [27:27] is the sub-list for extension extendee
-	0,  // [0:27] is the sub-list for field type_name
+	24, // 16: cachepb.FunctionMetricsProto.long_functions:type_name -> cachepb.FunctionDetailProto
+	24, // 17: cachepb.FunctionMetricsProto.high_param_funcs:type_name -> cachepb.FunctionDetailProto
+	15, // 18: cachepb.MetricsBaseCacheProto.loc_packages:type_name -> cachepb.PackageLOCProto
+	16, // 19: cachepb.MetricsBaseCacheProto.loc_files:type_name -> cachepb.FileLOCProto
+	19, // 20: cachepb.MetricsBaseCacheProto.types:type_name -> cachepb.ProjectTypesProto
+	21, // 21: cachepb.MetricsBaseCacheProto.interfaces:type_name -> cachepb.InterfaceMetricsProto
+	22, // 22: cachepb.MetricsBaseCacheProto.comments:type_name -> cachepb.CommentsMetricsProto
+	23, // 23: cachepb.MetricsBaseCacheProto.tests:type_name -> cachepb.TestMetricsProto
+	25, // 24: cachepb.MetricsBaseCacheProto.functions:type_name -> cachepb.FunctionMetricsProto
+	28, // 25: cachepb.ModificationsInfoProto.authors_summary:type_name -> cachepb.ContributorSummaryProto
+	27, // 26: cachepb.VCSCacheProto.author_details:type_name -> cachepb.AuthorInfoProto
+	29, // 27: cachepb.VCSCacheProto.path_modifications:type_name -> cachepb.ModificationsInfoProto
+	29, // 28: cachepb.VCSCacheProto.file_modifications:type_name -> cachepb.ModificationsInfoProto
+	7,  // 29: cachepb.DependencyGraphCacheProto.RelationsEntry.value:type_name -> cachepb.StringListProto
+	30, // [30:30] is the sub-list for method output_type
+	30, // [30:30] is the sub-list for method input_type
+	30, // [30:30] is the sub-list for extension type_name
+	30, // [30:30] is the sub-list for extension extendee
+	0,  // [0:30] is the sub-list for field type_name
 }
 
 func init() { file_cache_proto_init() }
@@ -2347,7 +2581,7 @@ func file_cache_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_cache_proto_rawDesc), len(file_cache_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   30,
+			NumMessages:   32,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

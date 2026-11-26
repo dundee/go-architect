@@ -54,6 +54,7 @@ type fileMetrics struct {
 	testFunctions int
 	counts        typesCounts
 	ifaceInfos    []interfaces.InterfaceInfo
+	funcDetails   []cache.FunctionDetail
 	cycloDetails  []complexity.Detail
 	cognitDetails []complexity.Detail
 	cycloSum      int
@@ -234,6 +235,19 @@ func processFile(fw fileWork, opts Options) (fileMetrics, bool) {
 						fm.counts.publicFunctions++
 					}
 				}
+				startPos := fset.Position(d.Pos())
+				endPos := fset.Position(d.End())
+				fnLOC := endPos.Line - startPos.Line + 1
+				if fnLOC < 1 {
+					fnLOC = 1
+				}
+				fm.funcDetails = append(fm.funcDetails, cache.FunctionDetail{
+					Package: fw.pkgPath,
+					File:    fmt.Sprintf("%s:%d", fw.relFile, startPos.Line),
+					Name:    funcDisplayName(d),
+					LOC:     fnLOC,
+					Params:  countFieldListParams(d.Type),
+				})
 			case *ast.GenDecl:
 				for _, spec := range d.Specs {
 					switch s := spec.(type) {
@@ -325,6 +339,7 @@ func aggregateBase(mainPackage string, batches [][]fileMetrics) *cache.MetricsBa
 		testFileCount     int
 		testFuncCount     int
 		allIfaces         []interfaces.InterfaceInfo
+		allFuncs          []cache.FunctionDetail
 		projTypes         types.ProjectTypes
 	)
 	projTypes.ProjectPackage = mainPackage
@@ -380,6 +395,7 @@ func aggregateBase(mainPackage string, batches [][]fileMetrics) *cache.MetricsBa
 			projTypes.PublicConstants += fm.counts.publicConstants
 
 			allIfaces = append(allIfaces, fm.ifaceInfos...)
+			allFuncs = append(allFuncs, fm.funcDetails...)
 		}
 	}
 
@@ -452,6 +468,121 @@ func aggregateBase(mainPackage string, batches [][]fileMetrics) *cache.MetricsBa
 			Ratio:        testRatio,
 			LargestFiles: testFiles,
 		},
+		Functions: buildFunctionMetrics(allFuncs, 5),
+	}
+}
+
+func buildFunctionMetrics(all []cache.FunctionDetail, topN int) *cache.FunctionMetrics {
+	if len(all) == 0 {
+		return &cache.FunctionMetrics{
+			LongFunctions:  []cache.FunctionDetail{},
+			HighParamFuncs: []cache.FunctionDetail{},
+		}
+	}
+
+	var locSum, paramSum, maxLOC, maxParams int
+	for _, f := range all {
+		locSum += f.LOC
+		paramSum += f.Params
+		if f.LOC > maxLOC {
+			maxLOC = f.LOC
+		}
+		if f.Params > maxParams {
+			maxParams = f.Params
+		}
+	}
+
+	byLOC := make([]cache.FunctionDetail, len(all))
+	copy(byLOC, all)
+	sort.Slice(byLOC, func(i, j int) bool {
+		if byLOC[i].LOC != byLOC[j].LOC {
+			return byLOC[i].LOC > byLOC[j].LOC
+		}
+		if byLOC[i].Params != byLOC[j].Params {
+			return byLOC[i].Params > byLOC[j].Params
+		}
+		if byLOC[i].Package != byLOC[j].Package {
+			return byLOC[i].Package < byLOC[j].Package
+		}
+		if byLOC[i].File != byLOC[j].File {
+			return byLOC[i].File < byLOC[j].File
+		}
+		return byLOC[i].Name < byLOC[j].Name
+	})
+	if len(byLOC) > topN {
+		byLOC = byLOC[:topN]
+	}
+
+	byParams := make([]cache.FunctionDetail, 0, len(all))
+	for _, f := range all {
+		if f.Params > 0 {
+			byParams = append(byParams, f)
+		}
+	}
+	sort.Slice(byParams, func(i, j int) bool {
+		if byParams[i].Params != byParams[j].Params {
+			return byParams[i].Params > byParams[j].Params
+		}
+		if byParams[i].LOC != byParams[j].LOC {
+			return byParams[i].LOC > byParams[j].LOC
+		}
+		if byParams[i].Package != byParams[j].Package {
+			return byParams[i].Package < byParams[j].Package
+		}
+		if byParams[i].File != byParams[j].File {
+			return byParams[i].File < byParams[j].File
+		}
+		return byParams[i].Name < byParams[j].Name
+	})
+	if len(byParams) > topN {
+		byParams = byParams[:topN]
+	}
+
+	return &cache.FunctionMetrics{
+		Total:          len(all),
+		AverageLOC:     round2(float64(locSum) / float64(len(all))),
+		MaxLOC:         maxLOC,
+		AverageParams:  round2(float64(paramSum) / float64(len(all))),
+		MaxParams:      maxParams,
+		LongFunctions:  byLOC,
+		HighParamFuncs: byParams,
+	}
+}
+
+func countFieldListParams(ft *ast.FuncType) int {
+	if ft == nil || ft.Params == nil {
+		return 0
+	}
+	total := 0
+	for _, f := range ft.Params.List {
+		if len(f.Names) == 0 {
+			total++
+		} else {
+			total += len(f.Names)
+		}
+	}
+	return total
+}
+
+func funcDisplayName(d *ast.FuncDecl) string {
+	if d.Recv == nil || len(d.Recv.List) == 0 {
+		return d.Name.Name
+	}
+	return fmt.Sprintf("(%s).%s", exprTypeName(d.Recv.List[0].Type), d.Name.Name)
+}
+
+func exprTypeName(expr ast.Expr) string {
+	switch t := expr.(type) {
+	case *ast.Ident:
+		return t.Name
+	case *ast.StarExpr:
+		return "*" + exprTypeName(t.X)
+	case *ast.IndexExpr:
+		return exprTypeName(t.X)
+	case *ast.IndexListExpr:
+		return exprTypeName(t.X)
+	default:
+		return "recv"
 	}
 }
 

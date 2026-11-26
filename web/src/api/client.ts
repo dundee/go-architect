@@ -3,6 +3,7 @@ import type {
   CouplingResponse,
   DependencyGraphResponse,
   DSMResponse,
+  HotspotsResponse,
   InstabilityResponse,
   MetricsResponse,
   ProjectContextResponse,
@@ -139,6 +140,18 @@ export function fetchVCS(
   const params = new URLSearchParams({ months: String(months) })
   if (refresh) params.set('refresh', 'true')
   return requestJson<VCSResponse>(`/api/vcs?${params.toString()}`, { signal })
+}
+
+export function fetchHotspots(
+  months: number,
+  signal?: AbortSignal,
+  refresh?: boolean,
+): Promise<HotspotsResponse> {
+  const params = new URLSearchParams({ months: String(months) })
+  if (refresh) params.set('refresh', 'true')
+  return requestJson<HotspotsResponse>(`/api/hotspots?${params.toString()}`, {
+    signal,
+  })
 }
 
 export function fetchTrends(
