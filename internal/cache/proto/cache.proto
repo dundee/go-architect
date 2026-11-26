@@ -24,6 +24,7 @@ message SnapshotMetricsProto {
   double avg_function_loc = 17;
   double avg_function_params = 18;
   int32 schema_version = 19;
+  double api_doc_coverage = 20;
 }
 
 message CommitSnapshotProto {
@@ -201,6 +202,20 @@ message FunctionMetricsProto {
   repeated FunctionDetailProto high_param_funcs = 7;
 }
 
+message DocCoverageItemProto {
+  string package = 1;
+  string file = 2;
+  string name = 3;
+  string kind = 4;
+}
+
+message DocCoverageMetricsProto {
+  int32 exported_total = 1;
+  int32 documented = 2;
+  double ratio = 3;
+  repeated DocCoverageItemProto undocumented = 4;
+}
+
 message MetricsBaseCacheProto {
   int32 loc_total = 1;
   repeated PackageLOCProto loc_packages = 2;
@@ -211,6 +226,7 @@ message MetricsBaseCacheProto {
   TestMetricsProto tests = 7;
   FunctionMetricsProto functions = 8;
   int32 schema_version = 9;
+  DocCoverageMetricsProto doc_coverage = 10;
 }
 
 message AuthorInfoProto {

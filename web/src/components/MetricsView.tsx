@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   AlertCircle,
   AlertTriangle,
+  BookOpenText,
   Box,
   Check,
   Code2,
@@ -303,19 +304,117 @@ export function MetricsView({ project, refreshSignal }: MetricsViewProps) {
                 Documentation
               </div>
               <div className="mt-1 font-mono text-lg font-bold text-slate-900">
-                {data.comments.files_with_comments}{' '}
-                <span className="text-xs font-normal text-slate-500">
-                  / {data.types.source_files} files commented
-                </span>
+                {data.doc_coverage && data.doc_coverage.exported_total > 0 ? (
+                  <>
+                    {data.doc_coverage.ratio.toFixed(1)}%{' '}
+                    <span className="text-xs font-normal text-slate-500">
+                      API doc coverage
+                    </span>
+                  </>
+                ) : (
+                  <>
+                    {data.comments.files_with_comments}{' '}
+                    <span className="text-xs font-normal text-slate-500">
+                      / {data.types.source_files} files commented
+                    </span>
+                  </>
+                )}
               </div>
               <div className="mt-1 text-xs text-slate-600">
-                {data.comments.total_lines.toLocaleString()} comment lines (
-                {commentPct}% of LOC)
+                {data.doc_coverage && data.doc_coverage.exported_total > 0
+                  ? `${data.doc_coverage.documented} / ${data.doc_coverage.exported_total} exported symbols · ${commentPct}% comment LOC`
+                  : `${data.comments.total_lines.toLocaleString()} comment lines (${commentPct}% of LOC)`}
               </div>
             </div>
           </div>
         </div>
       </div>
+
+      {/* Public API Doc Coverage */}
+      {data.doc_coverage && (
+        <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-xs">
+          <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+            <div>
+              <h2 className="flex items-center gap-2 text-sm font-semibold text-slate-900">
+                <BookOpenText className="h-4 w-4 text-emerald-600" />
+                Exported API Doc Coverage
+              </h2>
+              <p className="mt-0.5 text-xs text-slate-500">
+                Exported types, functions, and methods on exported receivers with{' '}
+                <code className="font-mono">go doc</code> comments.
+              </p>
+            </div>
+            <span className="rounded-full bg-emerald-50 px-2.5 py-0.5 font-mono text-xs font-semibold text-emerald-800 ring-1 ring-emerald-600/20">
+              {data.doc_coverage.exported_total > 0
+                ? `${data.doc_coverage.ratio.toFixed(1)}% (${data.doc_coverage.documented}/${data.doc_coverage.exported_total})`
+                : 'N/A (0 exported)'}
+            </span>
+          </div>
+
+          {data.doc_coverage.exported_total > 0 && (
+            <div className="mb-3 h-2 w-full overflow-hidden rounded-full bg-slate-100">
+              <div
+                className="h-full rounded-full bg-emerald-500 transition-all"
+                style={{ width: `${Math.min(100, data.doc_coverage.ratio)}%` }}
+              />
+            </div>
+          )}
+
+          {data.doc_coverage.exported_total === 0 ? (
+            <div className="rounded-lg border border-dashed border-slate-200 px-3 py-4 text-center text-xs text-slate-400">
+              No exported types, functions, or methods found.
+            </div>
+          ) : !data.doc_coverage.undocumented ||
+            data.doc_coverage.undocumented.length === 0 ? (
+            <div className="rounded-lg border border-emerald-200 bg-emerald-50/50 px-3 py-3 text-xs font-medium text-emerald-800">
+              All {data.doc_coverage.exported_total} exported symbols have Go doc comments.
+            </div>
+          ) : (
+            <div>
+              <h3 className="mb-2 text-[11px] font-semibold tracking-wider text-slate-500 uppercase">
+                Undocumented Exported Symbols (showing{' '}
+                {data.doc_coverage.undocumented.length} of{' '}
+                {data.doc_coverage.exported_total - data.doc_coverage.documented})
+              </h3>
+              <div className="max-h-56 overflow-auto rounded-lg border border-slate-200">
+                <table className="w-full border-collapse text-left text-xs">
+                  <thead className="sticky top-0 border-b border-slate-200 bg-slate-50 text-[11px] font-semibold text-slate-600 uppercase">
+                    <tr>
+                      <th className="px-3 py-2">Symbol</th>
+                      <th className="px-3 py-2">Kind</th>
+                      <th className="px-3 py-2">Package</th>
+                      <th className="px-3 py-2">Location</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {data.doc_coverage.undocumented.map((item, idx) => (
+                      <tr key={`undoc-${item.package}-${item.file}-${item.name}-${idx}`}>
+                        <td className="px-3 py-1.5 font-mono font-semibold text-slate-900">
+                          {item.name}
+                        </td>
+                        <td className="px-3 py-1.5">
+                          <span className="rounded bg-slate-100 px-1.5 py-0.5 font-mono text-[10px] text-slate-700">
+                            {item.kind}
+                          </span>
+                        </td>
+                        <td
+                          className="max-w-[180px] truncate px-3 py-1.5 font-mono text-slate-600"
+                          title={item.package}
+                        >
+                          {shortenPackageName(item.package, mainPkg)}
+                        </td>
+                        <td className="px-3 py-1.5 font-mono text-[11px] text-slate-500">
+                          {item.file}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Test Code Box */}
       {data.tests && (

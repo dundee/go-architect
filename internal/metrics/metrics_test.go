@@ -104,4 +104,10 @@ func TestAdd(t *testing.T) {
 	require.Equal(t, "main", res.Base.Functions.LongFunctions[0].Name)
 	require.Len(t, res.Base.Functions.HighParamFuncs, 1)
 	require.Equal(t, "Add", res.Base.Functions.HighParamFuncs[0].Name)
+
+	require.NotNil(t, res.Base.DocCoverage)
+	require.Equal(t, 5, res.Base.DocCoverage.ExportedTotal)
+	require.Equal(t, 1, res.Base.DocCoverage.Documented)
+	require.Equal(t, 20.0, res.Base.DocCoverage.Ratio)
+	require.Len(t, res.Base.DocCoverage.Undocumented, 4)
 }

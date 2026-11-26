@@ -198,6 +198,20 @@ export interface FunctionMetrics {
   high_param_funcs: FunctionDetail[] | null
 }
 
+export interface DocCoverageItem {
+  package: string
+  file: string
+  name: string
+  kind: string
+}
+
+export interface DocCoverageMetrics {
+  exported_total: number
+  documented: number
+  ratio: number
+  undocumented: DocCoverageItem[] | null
+}
+
 export interface MetricsResponse {
   loc: ProjectLOC
   types: ProjectTypes
@@ -205,6 +219,7 @@ export interface MetricsResponse {
   comments: CommentsMetrics
   tests: TestMetrics | null
   functions: FunctionMetrics | null
+  doc_coverage: DocCoverageMetrics | null
   cyclomatic_complexity: ComplexityResult
   cognitive_complexity: ComplexityResult
   cached?: boolean
@@ -296,6 +311,7 @@ export interface SnapshotMetrics {
   test_functions: number
   avg_function_loc: number
   avg_function_params: number
+  api_doc_coverage: number
   cyclomatic_complexity_avg?: number
   cognitive_complexity_avg?: number
 }

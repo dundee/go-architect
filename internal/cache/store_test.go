@@ -132,6 +132,12 @@ func TestProtobufRoundTrips(t *testing.T) {
 			LongFunctions:  []FunctionDetail{{Package: "example.com/mod", File: "main.go:10", Name: "run", LOC: 25, Params: 3}},
 			HighParamFuncs: []FunctionDetail{{Package: "example.com/mod", File: "main.go:10", Name: "run", LOC: 25, Params: 3}},
 		},
+		DocCoverage: &DocCoverageMetrics{
+			ExportedTotal: 4,
+			Documented:    3,
+			Ratio:         75.0,
+			Undocumented:  []DocCoverageItem{{Package: "example.com/mod", File: "main.go:5", Name: "Helper", Kind: "type"}},
+		},
 	}
 	require.NoError(t, store.PutMetricsBase(key, sha, base))
 	gotBase, ok := store.GetMetricsBase(key, sha)

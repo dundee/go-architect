@@ -86,6 +86,7 @@ type MetricsResponse struct {
 	Comments             *comments.CommentsMetrics    `json:"comments"`
 	Tests                *cache.TestMetrics           `json:"tests"`
 	Functions            *cache.FunctionMetrics       `json:"functions"`
+	DocCoverage          *cache.DocCoverageMetrics    `json:"doc_coverage"`
 	CyclomaticComplexity ComplexityResult             `json:"cyclomatic_complexity"`
 	CognitiveComplexity  ComplexityResult             `json:"cognitive_complexity"`
 	Cached               bool                         `json:"cached"`
@@ -552,6 +553,7 @@ func (s *Server) handleGetMetrics(w http.ResponseWriter, r *http.Request) {
 		Comments:             baseMetrics.Comments,
 		Tests:                baseMetrics.Tests,
 		Functions:            baseMetrics.Functions,
+		DocCoverage:          baseMetrics.DocCoverage,
 		CyclomaticComplexity: cycloRes,
 		CognitiveComplexity:  cognitRes,
 		Cached:               baseCached && compCached,

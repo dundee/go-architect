@@ -562,6 +562,31 @@ export function TrendsView({ project, refreshSignal }: TrendsViewProps) {
                 },
               ]}
             />
+
+            <TrendChartCard
+              title="Documentation Coverage"
+              subtitle="Exported API doc coverage (%) and raw comment ratio (%)"
+              points={points}
+              hoveredIdx={hoveredIdx}
+              onHoverIdx={setHoveredIdx}
+              yDomain={[0, 100]}
+              series={[
+                {
+                  id: 'api_doc',
+                  label: 'Exported API Doc %',
+                  color: '#059669',
+                  getValue: (p) => p.metrics.api_doc_coverage,
+                  formatValue: (v) => `${v.toFixed(1)}%`,
+                },
+                {
+                  id: 'comment_ratio',
+                  label: 'Comment Ratio %',
+                  color: '#0d9488',
+                  getValue: (p) => p.metrics.comments_ratio,
+                  formatValue: (v) => `${v.toFixed(1)}%`,
+                },
+              ]}
+            />
           </div>
 
           {/* Sampled Snapshots Table */}

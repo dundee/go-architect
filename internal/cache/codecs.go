@@ -43,13 +43,28 @@ type FunctionMetrics struct {
 	HighParamFuncs []FunctionDetail `json:"high_param_funcs"`
 }
 
+type DocCoverageItem struct {
+	Package string `json:"package"`
+	File    string `json:"file"`
+	Name    string `json:"name"`
+	Kind    string `json:"kind"`
+}
+
+type DocCoverageMetrics struct {
+	ExportedTotal int               `json:"exported_total"`
+	Documented    int               `json:"documented"`
+	Ratio         float64           `json:"ratio"`
+	Undocumented  []DocCoverageItem `json:"undocumented"`
+}
+
 type MetricsBase struct {
-	LOC        *loc.ProjectLOC
-	Types      *types.ProjectTypes
-	Interfaces *interfaces.InterfaceMetrics
-	Comments   *comments.CommentsMetrics
-	Tests      *TestMetrics
-	Functions  *FunctionMetrics
+	LOC         *loc.ProjectLOC
+	Types       *types.ProjectTypes
+	Interfaces  *interfaces.InterfaceMetrics
+	Comments    *comments.CommentsMetrics
+	Tests       *TestMetrics
+	Functions   *FunctionMetrics
+	DocCoverage *DocCoverageMetrics
 }
 
 // --- Complexity (stored separately from trends & base metrics) ---
@@ -325,7 +340,7 @@ func (s *Store) PutCoupling(projectKey, sha, dep string, res *coupling.Dependenc
 
 // --- Metrics Base (LOC, Types, Interfaces, Comments) ---
 
-const metricsBaseSchemaVersion int32 = 2
+const metricsBaseSchemaVersion int32 = 3
 
 func (s *Store) GetMetricsBase(projectKey, sha string) (*MetricsBase, bool) {
 	var pb cachepb.MetricsBaseCacheProto
@@ -428,6 +443,7 @@ func (s *Store) GetMetricsBase(projectKey, sha string) (*MetricsBase, bool) {
 	}
 
 	funcMetrics := fromFunctionMetricsProto(pb.GetFunctions())
+	docCoverage := fromDocCoverageMetricsProto(pb.GetDocCoverage())
 
 	return &MetricsBase{
 		LOC: &loc.ProjectLOC{
@@ -435,11 +451,12 @@ func (s *Store) GetMetricsBase(projectKey, sha string) (*MetricsBase, bool) {
 			Packages: locPkgs,
 			Files:    locFiles,
 		},
-		Types:      &pt,
-		Interfaces: ifaceMetrics,
-		Comments:   commMetrics,
-		Tests:      testMetrics,
-		Functions:  funcMetrics,
+		Types:       &pt,
+		Interfaces:  ifaceMetrics,
+		Comments:    commMetrics,
+		Tests:       testMetrics,
+		Functions:   funcMetrics,
+		DocCoverage: docCoverage,
 	}, true
 }
 
@@ -515,9 +532,52 @@ func (s *Store) PutMetricsBase(projectKey, sha string, m *MetricsBase) error {
 		},
 		Tests:         toTestMetricsProto(m.Tests),
 		Functions:     toFunctionMetricsProto(m.Functions),
+		DocCoverage:   toDocCoverageMetricsProto(m.DocCoverage),
 		SchemaVersion: metricsBaseSchemaVersion,
 	}
 	return s.PutProto("metrics", fmt.Sprintf("%s@%s", projectKey, sha), pb)
+}
+
+func toDocCoverageMetricsProto(d *DocCoverageMetrics) *cachepb.DocCoverageMetricsProto {
+	if d == nil {
+		return nil
+	}
+	items := make([]*cachepb.DocCoverageItemProto, 0, len(d.Undocumented))
+	for _, it := range d.Undocumented {
+		items = append(items, &cachepb.DocCoverageItemProto{
+			Package: it.Package,
+			File:    it.File,
+			Name:    it.Name,
+			Kind:    it.Kind,
+		})
+	}
+	return &cachepb.DocCoverageMetricsProto{
+		ExportedTotal: int32(d.ExportedTotal),
+		Documented:    int32(d.Documented),
+		Ratio:         d.Ratio,
+		Undocumented:  items,
+	}
+}
+
+func fromDocCoverageMetricsProto(pb *cachepb.DocCoverageMetricsProto) *DocCoverageMetrics {
+	if pb == nil {
+		return &DocCoverageMetrics{Undocumented: []DocCoverageItem{}}
+	}
+	items := make([]DocCoverageItem, 0, len(pb.GetUndocumented()))
+	for _, it := range pb.GetUndocumented() {
+		items = append(items, DocCoverageItem{
+			Package: it.GetPackage(),
+			File:    it.GetFile(),
+			Name:    it.GetName(),
+			Kind:    it.GetKind(),
+		})
+	}
+	return &DocCoverageMetrics{
+		ExportedTotal: int(pb.GetExportedTotal()),
+		Documented:    int(pb.GetDocumented()),
+		Ratio:         pb.GetRatio(),
+		Undocumented:  items,
+	}
 }
 
 func toFunctionMetricsProto(f *FunctionMetrics) *cachepb.FunctionMetricsProto {

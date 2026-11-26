@@ -39,11 +39,13 @@ type parsedFileMetrics struct {
 	commentLines     int
 	structs          int
 	interfaces       int
-	functions        int
-	methods          int
-	fnLOCSum         int
-	fnParamSum       int
-	interfaceMethods []int
+	functions          int
+	methods            int
+	fnLOCSum           int
+	fnParamSum         int
+	exportedTotal      int
+	exportedDocumented int
+	interfaceMethods   []int
 	imports          []string
 	cycloDetails     []complexity.Detail
 	cognitDetails    []complexity.Detail
@@ -255,6 +257,7 @@ func analyzeTreeFiles(files []treeFile, modPath string, includeComplexity bool) 
 		testLOC, testFiles, testFunctions      int
 		structs, interfaces, functions, methods int
 		fnLOCSum, fnParamSum                   int
+		exportedTotal, exportedDocumented      int
 		commentsTotal                          int
 		ifaceMethodSum, ifaceCount             int
 		cycloDetails, cognitDetails            []complexity.Detail
@@ -286,6 +289,8 @@ func analyzeTreeFiles(files []treeFile, modPath string, includeComplexity bool) 
 		methods += pf.methods
 		fnLOCSum += pf.fnLOCSum
 		fnParamSum += pf.fnParamSum
+		exportedTotal += pf.exportedTotal
+		exportedDocumented += pf.exportedDocumented
 		for _, mCount := range pf.interfaceMethods {
 			ifaceCount++
 			ifaceMethodSum += mCount
@@ -357,6 +362,11 @@ func analyzeTreeFiles(files []treeFile, modPath string, includeComplexity bool) 
 		avgFuncParams = round2(float64(fnParamSum) / float64(totalFuncs))
 	}
 
+	var apiDocCoverage float64
+	if exportedTotal > 0 {
+		apiDocCoverage = round2(100 * float64(exportedDocumented) / float64(exportedTotal))
+	}
+
 	var compReport *complexity.Report
 	if includeComplexity {
 		compReport = &complexity.Report{
@@ -384,6 +394,7 @@ func analyzeTreeFiles(files []treeFile, modPath string, includeComplexity bool) 
 		TestFunctions:          testFunctions,
 		AvgFunctionLOC:         avgFuncLOC,
 		AvgFunctionParams:      avgFuncParams,
+		APIDocCoverage:         apiDocCoverage,
 	}, compReport
 }
 
@@ -444,6 +455,12 @@ func parseSingleTreeFile(tf treeFile, modPath string, includeComplexity bool) (p
 			}
 			out.fnLOCSum += fnLOC
 			out.fnParamSum += countFuncParams(d.Type)
+			if isExportedFuncAPI(d) {
+				out.exportedTotal++
+				if d.Doc != nil && len(d.Doc.List) > 0 {
+					out.exportedDocumented++
+				}
+			}
 		case *ast.GenDecl:
 			if len(d.Specs) == 0 {
 				continue
@@ -452,6 +469,14 @@ func parseSingleTreeFile(tf treeFile, modPath string, includeComplexity bool) (p
 				ts, ok := spec.(*ast.TypeSpec)
 				if !ok {
 					continue
+				}
+				if ts.Name != nil && ts.Name.IsExported() {
+					out.exportedTotal++
+					hasDoc := (ts.Doc != nil && len(ts.Doc.List) > 0) ||
+						(len(d.Specs) == 1 && d.Doc != nil && len(d.Doc.List) > 0)
+					if hasDoc {
+						out.exportedDocumented++
+					}
 				}
 				switch tx := ts.Type.(type) {
 				case *ast.StructType:
@@ -532,4 +557,30 @@ func countFuncParams(ft *ast.FuncType) int {
 		}
 	}
 	return total
+}
+
+func isExportedFuncAPI(d *ast.FuncDecl) bool {
+	if d.Name == nil || !d.Name.IsExported() {
+		return false
+	}
+	if d.Recv == nil || len(d.Recv.List) == 0 {
+		return true
+	}
+	recvIdent := baseRecvIdent(d.Recv.List[0].Type)
+	return recvIdent != nil && recvIdent.IsExported()
+}
+
+func baseRecvIdent(expr ast.Expr) *ast.Ident {
+	switch t := expr.(type) {
+	case *ast.Ident:
+		return t
+	case *ast.StarExpr:
+		return baseRecvIdent(t.X)
+	case *ast.IndexExpr:
+		return baseRecvIdent(t.X)
+	case *ast.IndexListExpr:
+		return baseRecvIdent(t.X)
+	default:
+		return nil
+	}
 }

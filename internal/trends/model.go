@@ -28,6 +28,7 @@ type SnapshotMetrics struct {
 	TestFunctions           int      `json:"test_functions"`
 	AvgFunctionLOC          float64  `json:"avg_function_loc"`
 	AvgFunctionParams       float64  `json:"avg_function_params"`
+	APIDocCoverage          float64  `json:"api_doc_coverage"`
 	CyclomaticComplexityAvg *float64 `json:"cyclomatic_complexity_avg,omitempty"`
 	CognitiveComplexityAvg  *float64 `json:"cognitive_complexity_avg,omitempty"`
 }

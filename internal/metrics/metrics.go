@@ -53,9 +53,12 @@ type fileMetrics struct {
 	commentLines  int
 	testFunctions int
 	counts        typesCounts
-	ifaceInfos    []interfaces.InterfaceInfo
-	funcDetails   []cache.FunctionDetail
-	cycloDetails  []complexity.Detail
+	ifaceInfos         []interfaces.InterfaceInfo
+	funcDetails        []cache.FunctionDetail
+	exportedTotal      int
+	exportedDocumented int
+	undocumented       []cache.DocCoverageItem
+	cycloDetails       []complexity.Detail
 	cognitDetails []complexity.Detail
 	cycloSum      int
 	cognitSum     int
@@ -248,10 +251,43 @@ func processFile(fw fileWork, opts Options) (fileMetrics, bool) {
 					LOC:     fnLOC,
 					Params:  countFieldListParams(d.Type),
 				})
+				if isExportedFuncAPI(d) {
+					fm.exportedTotal++
+					if d.Doc != nil && len(d.Doc.List) > 0 {
+						fm.exportedDocumented++
+					} else {
+						kind := "function"
+						if d.Recv != nil {
+							kind = "method"
+						}
+						fm.undocumented = append(fm.undocumented, cache.DocCoverageItem{
+							Package: fw.pkgPath,
+							File:    fmt.Sprintf("%s:%d", fw.relFile, startPos.Line),
+							Name:    funcDisplayName(d),
+							Kind:    kind,
+						})
+					}
+				}
 			case *ast.GenDecl:
 				for _, spec := range d.Specs {
 					switch s := spec.(type) {
 					case *ast.TypeSpec:
+						if isExported(s.Name) {
+							fm.exportedTotal++
+							hasDoc := (s.Doc != nil && len(s.Doc.List) > 0) ||
+								(len(d.Specs) == 1 && d.Doc != nil && len(d.Doc.List) > 0)
+							if hasDoc {
+								fm.exportedDocumented++
+							} else {
+								line := fset.Position(s.Pos()).Line
+								fm.undocumented = append(fm.undocumented, cache.DocCoverageItem{
+									Package: fw.pkgPath,
+									File:    fmt.Sprintf("%s:%d", fw.relFile, line),
+									Name:    s.Name.Name,
+									Kind:    "type",
+								})
+							}
+						}
 						switch tx := s.Type.(type) {
 						case *ast.StructType:
 							fm.counts.structs++
@@ -338,9 +374,12 @@ func aggregateBase(mainPackage string, batches [][]fileMetrics) *cache.MetricsBa
 		testLOC           int
 		testFileCount     int
 		testFuncCount     int
-		allIfaces         []interfaces.InterfaceInfo
-		allFuncs          []cache.FunctionDetail
-		projTypes         types.ProjectTypes
+		allIfaces          []interfaces.InterfaceInfo
+		allFuncs           []cache.FunctionDetail
+		exportedTotal      int
+		exportedDocumented int
+		undocumented       []cache.DocCoverageItem
+		projTypes          types.ProjectTypes
 	)
 	projTypes.ProjectPackage = mainPackage
 
@@ -396,6 +435,9 @@ func aggregateBase(mainPackage string, batches [][]fileMetrics) *cache.MetricsBa
 
 			allIfaces = append(allIfaces, fm.ifaceInfos...)
 			allFuncs = append(allFuncs, fm.funcDetails...)
+			exportedTotal += fm.exportedTotal
+			exportedDocumented += fm.exportedDocumented
+			undocumented = append(undocumented, fm.undocumented...)
 		}
 	}
 
@@ -468,7 +510,64 @@ func aggregateBase(mainPackage string, batches [][]fileMetrics) *cache.MetricsBa
 			Ratio:        testRatio,
 			LargestFiles: testFiles,
 		},
-		Functions: buildFunctionMetrics(allFuncs, 5),
+		Functions:   buildFunctionMetrics(allFuncs, 5),
+		DocCoverage: buildDocCoverageMetrics(exportedTotal, exportedDocumented, undocumented, 20),
+	}
+}
+
+func buildDocCoverageMetrics(exportedTotal, documented int, undocumented []cache.DocCoverageItem, limit int) *cache.DocCoverageMetrics {
+	if undocumented == nil {
+		undocumented = []cache.DocCoverageItem{}
+	}
+	sort.Slice(undocumented, func(i, j int) bool {
+		if undocumented[i].Package != undocumented[j].Package {
+			return undocumented[i].Package < undocumented[j].Package
+		}
+		if undocumented[i].File != undocumented[j].File {
+			return undocumented[i].File < undocumented[j].File
+		}
+		return undocumented[i].Name < undocumented[j].Name
+	})
+	if len(undocumented) > limit {
+		undocumented = undocumented[:limit]
+	}
+
+	var ratio float64
+	if exportedTotal > 0 {
+		ratio = round2(100 * float64(documented) / float64(exportedTotal))
+	}
+
+	return &cache.DocCoverageMetrics{
+		ExportedTotal: exportedTotal,
+		Documented:    documented,
+		Ratio:         ratio,
+		Undocumented:  undocumented,
+	}
+}
+
+func isExportedFuncAPI(d *ast.FuncDecl) bool {
+	if !isExported(d.Name) {
+		return false
+	}
+	if d.Recv == nil || len(d.Recv.List) == 0 {
+		return true
+	}
+	recvName := baseTypeIdent(d.Recv.List[0].Type)
+	return isExported(recvName)
+}
+
+func baseTypeIdent(expr ast.Expr) *ast.Ident {
+	switch t := expr.(type) {
+	case *ast.Ident:
+		return t
+	case *ast.StarExpr:
+		return baseTypeIdent(t.X)
+	case *ast.IndexExpr:
+		return baseTypeIdent(t.X)
+	case *ast.IndexListExpr:
+		return baseTypeIdent(t.X)
+	default:
+		return nil
 	}
 }
 
