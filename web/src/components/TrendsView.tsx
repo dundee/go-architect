@@ -581,7 +581,7 @@ export function TrendsView({ project, refreshSignal }: TrendsViewProps) {
                 {
                   id: 'comment_ratio',
                   label: 'Comment Ratio %',
-                  color: '#0d9488',
+                  color: '#d97706',
                   getValue: (p) => p.metrics.comments_ratio,
                   formatValue: (v) => `${v.toFixed(1)}%`,
                 },
