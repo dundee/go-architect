@@ -266,12 +266,14 @@ func analyzeTreeFiles(files []treeFile, modPath string, includeComplexity bool) 
 
 	// Collect all package names first (excluding *_test.go-only packages) so afferent/efferent only tracks production packages.
 	var allParsed []parsedFileMetrics
+	testPkgSet := make(map[string]struct{})
 	for _, batch := range results {
 		for _, pf := range batch {
 			if pf.isTest {
 				testFiles++
 				testLOC += pf.loc
 				testFunctions += pf.testFunctions
+				testPkgSet[pf.pkgLabel] = struct{}{}
 				continue
 			}
 			ensurePkg(pf.pkgLabel)
@@ -367,6 +369,18 @@ func analyzeTreeFiles(files []treeFile, modPath string, includeComplexity bool) 
 		apiDocCoverage = round2(100 * float64(exportedDocumented) / float64(exportedTotal))
 	}
 
+	testedPkgs := 0
+	for pkg := range pkgMap {
+		if _, ok := testPkgSet[pkg]; ok {
+			testedPkgs++
+		}
+	}
+	untestedPkgs := len(pkgMap) - testedPkgs
+	var testedPkgsRatio float64
+	if len(pkgMap) > 0 {
+		testedPkgsRatio = round2(100 * float64(testedPkgs) / float64(len(pkgMap)))
+	}
+
 	var compReport *complexity.Report
 	if includeComplexity {
 		compReport = &complexity.Report{
@@ -392,6 +406,9 @@ func analyzeTreeFiles(files []treeFile, modPath string, includeComplexity bool) 
 		TestLOC:                testLOC,
 		TestFiles:              testFiles,
 		TestFunctions:          testFunctions,
+		TestedPackages:         testedPkgs,
+		UntestedPackages:       untestedPkgs,
+		TestedPackagesRatio:    testedPkgsRatio,
 		AvgFunctionLOC:         avgFuncLOC,
 		AvgFunctionParams:      avgFuncParams,
 		APIDocCoverage:         apiDocCoverage,

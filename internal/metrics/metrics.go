@@ -364,6 +364,7 @@ func aggregateBase(mainPackage string, batches [][]fileMetrics) *cache.MetricsBa
 	locByPkgMap := make(map[string]int)
 	locFiles := make([]loc.FileLOC, 0)
 	testFiles := make([]loc.FileLOC, 0)
+	testPkgSet := make(map[string]struct{})
 	pkgTypesMap := make(map[string]*types.PackageTypes)
 
 	var (
@@ -389,6 +390,7 @@ func aggregateBase(mainPackage string, batches [][]fileMetrics) *cache.MetricsBa
 				testFileCount++
 				testLOC += fm.loc
 				testFuncCount += fm.testFunctions
+				testPkgSet[fm.work.pkgPath] = struct{}{}
 				testFiles = append(testFiles, loc.FileLOC{
 					Package: fm.work.pkgPath,
 					File:    fm.work.fileName,
@@ -489,6 +491,20 @@ func aggregateBase(mainPackage string, batches [][]fileMetrics) *cache.MetricsBa
 		testFiles = testFiles[:5]
 	}
 
+	testedPkgs := 0
+	untestedPkgs := make([]string, 0)
+	for _, pd := range pkgDetails {
+		if _, ok := testPkgSet[pd.Package]; ok {
+			testedPkgs++
+		} else {
+			untestedPkgs = append(untestedPkgs, pd.Package)
+		}
+	}
+	var testedPkgsRatio float64
+	if len(pkgDetails) > 0 {
+		testedPkgsRatio = round2(100 * float64(testedPkgs) / float64(len(pkgDetails)))
+	}
+
 	return &cache.MetricsBase{
 		LOC: &loc.ProjectLOC{
 			Total:    totalLOC,
@@ -504,11 +520,15 @@ func aggregateBase(mainPackage string, batches [][]fileMetrics) *cache.MetricsBa
 			FilesWithCommentsRatio: filesCommentRatio,
 		},
 		Tests: &cache.TestMetrics{
-			LOC:          testLOC,
-			Files:        testFileCount,
-			Functions:    testFuncCount,
-			Ratio:        testRatio,
-			LargestFiles: testFiles,
+			LOC:                 testLOC,
+			Files:               testFileCount,
+			Functions:           testFuncCount,
+			Ratio:               testRatio,
+			LargestFiles:        testFiles,
+			TestedPackages:      testedPkgs,
+			TotalPackages:       len(pkgDetails),
+			TestedPackagesRatio: testedPkgsRatio,
+			UntestedPackages:    untestedPkgs,
 		},
 		Functions:   buildFunctionMetrics(allFuncs, 5),
 		DocCoverage: buildDocCoverageMetrics(exportedTotal, exportedDocumented, undocumented, 20),

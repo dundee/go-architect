@@ -26,6 +26,9 @@ type SnapshotMetrics struct {
 	TestLOC                 int      `json:"test_loc"`
 	TestFiles               int      `json:"test_files"`
 	TestFunctions           int      `json:"test_functions"`
+	TestedPackages          int      `json:"tested_packages"`
+	UntestedPackages        int      `json:"untested_packages"`
+	TestedPackagesRatio     float64  `json:"tested_packages_ratio"`
 	AvgFunctionLOC          float64  `json:"avg_function_loc"`
 	AvgFunctionParams       float64  `json:"avg_function_params"`
 	APIDocCoverage          float64  `json:"api_doc_coverage"`

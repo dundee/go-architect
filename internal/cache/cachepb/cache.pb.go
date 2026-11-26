@@ -43,6 +43,9 @@ type SnapshotMetricsProto struct {
 	AvgFunctionParams      float64                `protobuf:"fixed64,18,opt,name=avg_function_params,json=avgFunctionParams,proto3" json:"avg_function_params,omitempty"`
 	SchemaVersion          int32                  `protobuf:"varint,19,opt,name=schema_version,json=schemaVersion,proto3" json:"schema_version,omitempty"`
 	ApiDocCoverage         float64                `protobuf:"fixed64,20,opt,name=api_doc_coverage,json=apiDocCoverage,proto3" json:"api_doc_coverage,omitempty"`
+	TestedPackages         int32                  `protobuf:"varint,21,opt,name=tested_packages,json=testedPackages,proto3" json:"tested_packages,omitempty"`
+	UntestedPackages       int32                  `protobuf:"varint,22,opt,name=untested_packages,json=untestedPackages,proto3" json:"untested_packages,omitempty"`
+	TestedPackagesRatio    float64                `protobuf:"fixed64,23,opt,name=tested_packages_ratio,json=testedPackagesRatio,proto3" json:"tested_packages_ratio,omitempty"`
 	unknownFields          protoimpl.UnknownFields
 	sizeCache              protoimpl.SizeCache
 }
@@ -213,6 +216,27 @@ func (x *SnapshotMetricsProto) GetSchemaVersion() int32 {
 func (x *SnapshotMetricsProto) GetApiDocCoverage() float64 {
 	if x != nil {
 		return x.ApiDocCoverage
+	}
+	return 0
+}
+
+func (x *SnapshotMetricsProto) GetTestedPackages() int32 {
+	if x != nil {
+		return x.TestedPackages
+	}
+	return 0
+}
+
+func (x *SnapshotMetricsProto) GetUntestedPackages() int32 {
+	if x != nil {
+		return x.UntestedPackages
+	}
+	return 0
+}
+
+func (x *SnapshotMetricsProto) GetTestedPackagesRatio() float64 {
+	if x != nil {
+		return x.TestedPackagesRatio
 	}
 	return 0
 }
@@ -1674,14 +1698,18 @@ func (x *CommentsMetricsProto) GetFilesWithCommentsRatio() float64 {
 }
 
 type TestMetricsProto struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Loc           int32                  `protobuf:"varint,1,opt,name=loc,proto3" json:"loc,omitempty"`
-	Files         int32                  `protobuf:"varint,2,opt,name=files,proto3" json:"files,omitempty"`
-	Functions     int32                  `protobuf:"varint,3,opt,name=functions,proto3" json:"functions,omitempty"`
-	Ratio         float64                `protobuf:"fixed64,4,opt,name=ratio,proto3" json:"ratio,omitempty"`
-	LargestFiles  []*FileLOCProto        `protobuf:"bytes,5,rep,name=largest_files,json=largestFiles,proto3" json:"largest_files,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state               protoimpl.MessageState `protogen:"open.v1"`
+	Loc                 int32                  `protobuf:"varint,1,opt,name=loc,proto3" json:"loc,omitempty"`
+	Files               int32                  `protobuf:"varint,2,opt,name=files,proto3" json:"files,omitempty"`
+	Functions           int32                  `protobuf:"varint,3,opt,name=functions,proto3" json:"functions,omitempty"`
+	Ratio               float64                `protobuf:"fixed64,4,opt,name=ratio,proto3" json:"ratio,omitempty"`
+	LargestFiles        []*FileLOCProto        `protobuf:"bytes,5,rep,name=largest_files,json=largestFiles,proto3" json:"largest_files,omitempty"`
+	TestedPackages      int32                  `protobuf:"varint,6,opt,name=tested_packages,json=testedPackages,proto3" json:"tested_packages,omitempty"`
+	TotalPackages       int32                  `protobuf:"varint,7,opt,name=total_packages,json=totalPackages,proto3" json:"total_packages,omitempty"`
+	TestedPackagesRatio float64                `protobuf:"fixed64,8,opt,name=tested_packages_ratio,json=testedPackagesRatio,proto3" json:"tested_packages_ratio,omitempty"`
+	UntestedPackages    []string               `protobuf:"bytes,9,rep,name=untested_packages,json=untestedPackages,proto3" json:"untested_packages,omitempty"`
+	unknownFields       protoimpl.UnknownFields
+	sizeCache           protoimpl.SizeCache
 }
 
 func (x *TestMetricsProto) Reset() {
@@ -1745,6 +1773,34 @@ func (x *TestMetricsProto) GetRatio() float64 {
 func (x *TestMetricsProto) GetLargestFiles() []*FileLOCProto {
 	if x != nil {
 		return x.LargestFiles
+	}
+	return nil
+}
+
+func (x *TestMetricsProto) GetTestedPackages() int32 {
+	if x != nil {
+		return x.TestedPackages
+	}
+	return 0
+}
+
+func (x *TestMetricsProto) GetTotalPackages() int32 {
+	if x != nil {
+		return x.TotalPackages
+	}
+	return 0
+}
+
+func (x *TestMetricsProto) GetTestedPackagesRatio() float64 {
+	if x != nil {
+		return x.TestedPackagesRatio
+	}
+	return 0
+}
+
+func (x *TestMetricsProto) GetUntestedPackages() []string {
+	if x != nil {
+		return x.UntestedPackages
 	}
 	return nil
 }
@@ -2437,7 +2493,7 @@ var File_cache_proto protoreflect.FileDescriptor
 
 const file_cache_proto_rawDesc = "" +
 	"\n" +
-	"\vcache.proto\x12\acachepb\"\xfd\x05\n" +
+	"\vcache.proto\x12\acachepb\"\x87\a\n" +
 	"\x14SnapshotMetricsProto\x12\x10\n" +
 	"\x03loc\x18\x01 \x01(\x05R\x03loc\x12\x1a\n" +
 	"\bpackages\x18\x02 \x01(\x05R\bpackages\x12!\n" +
@@ -2462,7 +2518,10 @@ const file_cache_proto_rawDesc = "" +
 	"\x10avg_function_loc\x18\x11 \x01(\x01R\x0eavgFunctionLoc\x12.\n" +
 	"\x13avg_function_params\x18\x12 \x01(\x01R\x11avgFunctionParams\x12%\n" +
 	"\x0eschema_version\x18\x13 \x01(\x05R\rschemaVersion\x12(\n" +
-	"\x10api_doc_coverage\x18\x14 \x01(\x01R\x0eapiDocCoverage\"\xdc\x01\n" +
+	"\x10api_doc_coverage\x18\x14 \x01(\x01R\x0eapiDocCoverage\x12'\n" +
+	"\x0ftested_packages\x18\x15 \x01(\x05R\x0etestedPackages\x12+\n" +
+	"\x11untested_packages\x18\x16 \x01(\x05R\x10untestedPackages\x122\n" +
+	"\x15tested_packages_ratio\x18\x17 \x01(\x01R\x13testedPackagesRatio\"\xdc\x01\n" +
 	"\x13CommitSnapshotProto\x12\x1d\n" +
 	"\n" +
 	"commit_sha\x18\x01 \x01(\tR\tcommitSha\x12\x1b\n" +
@@ -2583,13 +2642,17 @@ const file_cache_proto_rawDesc = "" +
 	"totalLines\x12\x14\n" +
 	"\x05ratio\x18\x02 \x01(\x01R\x05ratio\x12.\n" +
 	"\x13files_with_comments\x18\x03 \x01(\x05R\x11filesWithComments\x129\n" +
-	"\x19files_with_comments_ratio\x18\x04 \x01(\x01R\x16filesWithCommentsRatio\"\xaa\x01\n" +
+	"\x19files_with_comments_ratio\x18\x04 \x01(\x01R\x16filesWithCommentsRatio\"\xdb\x02\n" +
 	"\x10TestMetricsProto\x12\x10\n" +
 	"\x03loc\x18\x01 \x01(\x05R\x03loc\x12\x14\n" +
 	"\x05files\x18\x02 \x01(\x05R\x05files\x12\x1c\n" +
 	"\tfunctions\x18\x03 \x01(\x05R\tfunctions\x12\x14\n" +
 	"\x05ratio\x18\x04 \x01(\x01R\x05ratio\x12:\n" +
-	"\rlargest_files\x18\x05 \x03(\v2\x15.cachepb.FileLOCProtoR\flargestFiles\"\x81\x01\n" +
+	"\rlargest_files\x18\x05 \x03(\v2\x15.cachepb.FileLOCProtoR\flargestFiles\x12'\n" +
+	"\x0ftested_packages\x18\x06 \x01(\x05R\x0etestedPackages\x12%\n" +
+	"\x0etotal_packages\x18\a \x01(\x05R\rtotalPackages\x122\n" +
+	"\x15tested_packages_ratio\x18\b \x01(\x01R\x13testedPackagesRatio\x12+\n" +
+	"\x11untested_packages\x18\t \x03(\tR\x10untestedPackages\"\x81\x01\n" +
 	"\x13FunctionDetailProto\x12\x18\n" +
 	"\apackage\x18\x01 \x01(\tR\apackage\x12\x12\n" +
 	"\x04file\x18\x02 \x01(\tR\x04file\x12\x12\n" +

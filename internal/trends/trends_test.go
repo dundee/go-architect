@@ -234,6 +234,9 @@ func TestAnalyzeWorksWithoutExternalGoModDownloads(t *testing.T) {
 	require.Equal(t, 1, m.TestFiles)
 	require.Equal(t, 1, m.TestFunctions)
 	require.Greater(t, m.TestLOC, 0)
+	require.Equal(t, 1, m.TestedPackages)
+	require.Equal(t, 1, m.UntestedPackages)
+	require.Equal(t, 50.0, m.TestedPackagesRatio)
 	require.Equal(t, 1.0, m.AvgFunctionLOC)
 	require.Equal(t, 0.5, m.AvgFunctionParams)
 	require.Equal(t, 50.0, m.APIDocCoverage) // Svc is documented, Run is not

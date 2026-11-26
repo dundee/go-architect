@@ -25,6 +25,9 @@ message SnapshotMetricsProto {
   double avg_function_params = 18;
   int32 schema_version = 19;
   double api_doc_coverage = 20;
+  int32 tested_packages = 21;
+  int32 untested_packages = 22;
+  double tested_packages_ratio = 23;
 }
 
 message CommitSnapshotProto {
@@ -182,6 +185,10 @@ message TestMetricsProto {
   int32 functions = 3;
   double ratio = 4;
   repeated FileLOCProto largest_files = 5;
+  int32 tested_packages = 6;
+  int32 total_packages = 7;
+  double tested_packages_ratio = 8;
+  repeated string untested_packages = 9;
 }
 
 message FunctionDetailProto {

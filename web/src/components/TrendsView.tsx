@@ -587,6 +587,24 @@ export function TrendsView({ project, refreshSignal }: TrendsViewProps) {
                 },
               ]}
             />
+
+            <TrendChartCard
+              title="Test Presence by Package"
+              subtitle="Percentage of production packages with at least one *_test.go file"
+              points={points}
+              hoveredIdx={hoveredIdx}
+              onHoverIdx={setHoveredIdx}
+              yDomain={[0, 100]}
+              series={[
+                {
+                  id: 'tested_pkgs_pct',
+                  label: 'Tested Packages %',
+                  color: '#0d9488',
+                  getValue: (p) => p.metrics.tested_packages_ratio,
+                  formatValue: (v) => `${v.toFixed(1)}%`,
+                },
+              ]}
+            />
           </div>
 
           {/* Sampled Snapshots Table */}

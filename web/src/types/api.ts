@@ -178,6 +178,10 @@ export interface TestMetrics {
   functions: number
   ratio: number
   largest_files: FileLOC[] | null
+  tested_packages: number
+  total_packages: number
+  tested_packages_ratio: number
+  untested_packages: string[] | null
 }
 
 export interface FunctionDetail {
@@ -309,6 +313,9 @@ export interface SnapshotMetrics {
   test_loc: number
   test_files: number
   test_functions: number
+  tested_packages: number
+  untested_packages: number
+  tested_packages_ratio: number
   avg_function_loc: number
   avg_function_params: number
   api_doc_coverage: number

@@ -84,6 +84,10 @@ func TestAdd(t *testing.T) {
 	require.Greater(t, res.Base.Tests.Ratio, 0.0)
 	require.Len(t, res.Base.Tests.LargestFiles, 1)
 	require.Equal(t, "helper_test.go", res.Base.Tests.LargestFiles[0].File)
+	require.Equal(t, 1, res.Base.Tests.TestedPackages)
+	require.Equal(t, 2, res.Base.Tests.TotalPackages)
+	require.Equal(t, 50.0, res.Base.Tests.TestedPackagesRatio)
+	require.Equal(t, []string{"example.com/fast"}, res.Base.Tests.UntestedPackages)
 
 	require.Equal(t, 1.0, res.Base.Interfaces.AverageMethods)
 	require.Len(t, res.Base.Interfaces.InterfaceMaxMethods, 1)

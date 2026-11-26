@@ -18,11 +18,15 @@ import (
 )
 
 type TestMetrics struct {
-	LOC          int           `json:"loc"`
-	Files        int           `json:"files"`
-	Functions    int           `json:"functions"`
-	Ratio        float64       `json:"ratio"`
-	LargestFiles []loc.FileLOC `json:"largest_files"`
+	LOC                 int           `json:"loc"`
+	Files               int           `json:"files"`
+	Functions           int           `json:"functions"`
+	Ratio               float64       `json:"ratio"`
+	LargestFiles        []loc.FileLOC `json:"largest_files"`
+	TestedPackages      int           `json:"tested_packages"`
+	TotalPackages       int           `json:"total_packages"`
+	TestedPackagesRatio float64       `json:"tested_packages_ratio"`
+	UntestedPackages    []string      `json:"untested_packages"`
 }
 
 type FunctionDetail struct {
@@ -340,7 +344,7 @@ func (s *Store) PutCoupling(projectKey, sha, dep string, res *coupling.Dependenc
 
 // --- Metrics Base (LOC, Types, Interfaces, Comments) ---
 
-const metricsBaseSchemaVersion int32 = 3
+const metricsBaseSchemaVersion int32 = 4
 
 func (s *Store) GetMetricsBase(projectKey, sha string) (*MetricsBase, bool) {
 	var pb cachepb.MetricsBaseCacheProto
@@ -418,7 +422,8 @@ func (s *Store) GetMetricsBase(projectKey, sha string) (*MetricsBase, bool) {
 	}
 
 	testMetrics := &TestMetrics{
-		LargestFiles: []loc.FileLOC{},
+		LargestFiles:     []loc.FileLOC{},
+		UntestedPackages: []string{},
 	}
 	if pbTests := pb.GetTests(); pbTests != nil {
 		largest := make([]loc.FileLOC, 0, len(pbTests.GetLargestFiles()))
@@ -430,11 +435,15 @@ func (s *Store) GetMetricsBase(projectKey, sha string) (*MetricsBase, bool) {
 			})
 		}
 		testMetrics = &TestMetrics{
-			LOC:          int(pbTests.GetLoc()),
-			Files:        int(pbTests.GetFiles()),
-			Functions:    int(pbTests.GetFunctions()),
-			Ratio:        pbTests.GetRatio(),
-			LargestFiles: largest,
+			LOC:                 int(pbTests.GetLoc()),
+			Files:               int(pbTests.GetFiles()),
+			Functions:           int(pbTests.GetFunctions()),
+			Ratio:               pbTests.GetRatio(),
+			LargestFiles:        largest,
+			TestedPackages:      int(pbTests.GetTestedPackages()),
+			TotalPackages:       int(pbTests.GetTotalPackages()),
+			TestedPackagesRatio: pbTests.GetTestedPackagesRatio(),
+			UntestedPackages:    nonNilStrings(pbTests.GetUntestedPackages()),
 		}
 	}
 
@@ -651,11 +660,15 @@ func toTestMetricsProto(t *TestMetrics) *cachepb.TestMetricsProto {
 		})
 	}
 	return &cachepb.TestMetricsProto{
-		Loc:          int32(t.LOC),
-		Files:        int32(t.Files),
-		Functions:    int32(t.Functions),
-		Ratio:        t.Ratio,
-		LargestFiles: largest,
+		Loc:                 int32(t.LOC),
+		Files:               int32(t.Files),
+		Functions:           int32(t.Functions),
+		Ratio:               t.Ratio,
+		LargestFiles:        largest,
+		TestedPackages:      int32(t.TestedPackages),
+		TotalPackages:       int32(t.TotalPackages),
+		TestedPackagesRatio: t.TestedPackagesRatio,
+		UntestedPackages:    t.UntestedPackages,
 	}
 }
 

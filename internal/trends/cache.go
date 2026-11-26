@@ -31,7 +31,7 @@ func NewCacheFromStore(store *cache.Store) *Cache {
 	return &Cache{store: store}
 }
 
-const snapshotSchemaVersion int32 = 3
+const snapshotSchemaVersion int32 = 4
 
 func (c *Cache) GetSnapshot(projectKey, sha string) (*CommitSnapshot, bool) {
 	if c == nil || c.store == nil {
@@ -68,6 +68,9 @@ func (c *Cache) GetSnapshot(projectKey, sha string) (*CommitSnapshot, bool) {
 			TestLOC:                int(m.GetTestLoc()),
 			TestFiles:              int(m.GetTestFiles()),
 			TestFunctions:          int(m.GetTestFunctions()),
+			TestedPackages:         int(m.GetTestedPackages()),
+			UntestedPackages:       int(m.GetUntestedPackages()),
+			TestedPackagesRatio:    m.GetTestedPackagesRatio(),
 			AvgFunctionLOC:         m.GetAvgFunctionLoc(),
 			AvgFunctionParams:      m.GetAvgFunctionParams(),
 			APIDocCoverage:         m.GetApiDocCoverage(),
@@ -102,6 +105,9 @@ func (c *Cache) PutSnapshot(projectKey string, snap CommitSnapshot) error {
 			TestLoc:                int32(snap.Metrics.TestLOC),
 			TestFiles:              int32(snap.Metrics.TestFiles),
 			TestFunctions:          int32(snap.Metrics.TestFunctions),
+			TestedPackages:         int32(snap.Metrics.TestedPackages),
+			UntestedPackages:       int32(snap.Metrics.UntestedPackages),
+			TestedPackagesRatio:    snap.Metrics.TestedPackagesRatio,
 			AvgFunctionLoc:         snap.Metrics.AvgFunctionLOC,
 			AvgFunctionParams:      snap.Metrics.AvgFunctionParams,
 			ApiDocCoverage:         snap.Metrics.APIDocCoverage,
