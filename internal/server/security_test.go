@@ -2,6 +2,7 @@ package server
 
 import (
 	"bytes"
+	"encoding/json"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -25,8 +26,12 @@ func TestGuard(t *testing.T) {
 	srv, err := New(repoRoot, nil, testDistFS())
 	require.NoError(t, err)
 
+	// Encode via json.Marshal: Windows paths contain backslashes that are
+	// invalid JSON escapes when concatenated into a literal.
+	switchPayload, err := json.Marshal(switchProjectRequest{Path: repoRoot})
+	require.NoError(t, err)
 	switchBody := func() io.Reader {
-		return bytes.NewBufferString(`{"path":"` + repoRoot + `"}`)
+		return bytes.NewReader(switchPayload)
 	}
 
 	tests := []struct {
