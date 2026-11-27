@@ -87,7 +87,7 @@ const TOOLS: Array<{
     path: '/metrics',
     label: 'Project Metrics',
     description:
-      'Inspect lines of code, declarations, interface sizes, comments, and cyclomatic/cognitive complexity.',
+      'Inspect lines of code, declarations, doc & test coverage, function sizing, and cyclomatic/cognitive complexity.',
     icon: Activity,
     enabled: true,
   },
@@ -96,7 +96,7 @@ const TOOLS: Array<{
     path: '/trends',
     label: 'Trends',
     description:
-      'Track size, Instability health, and optional complexity across sampled Git history.',
+      'Track size, Instability health, density, doc/test coverage, and complexity across sampled Git history.',
     icon: TrendingUp,
     enabled: true,
   },
@@ -105,7 +105,7 @@ const TOOLS: Array<{
     path: '/vcs',
     label: 'VCS Analysis',
     description:
-      'Analyze contributor activity and Bus Factor Risk across the Repository.',
+      'Analyze contributor activity, Bus Factor Risk, and Churn × Complexity Hotspots across the Repository.',
     icon: FolderGit2,
     enabled: true,
   },

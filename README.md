@@ -17,11 +17,12 @@ Go-Architect is an interactive Software Architecture Analysis Tool for Go Projec
 ## Features
 - **Abstractness & Instability Chart**: Interactive scatter plot with Main Sequence, Zone of Pain, Zone of Uselessness, overlapping package grouping, hover tooltips, and synced table filtering.
 - **Dependency Graph**: Directed graph across Package Layers (`internal`, `organization`, `external`, `standard`) with neighbor inspection and direct jump to Coupling.
-- **Dependency Structure Matrix (DSM)**: Package-to-package and 4×4 layer-aggregated matrices with weighted/boolean modes and mutual Dependency Cycle detection.
-- **Dependency Coupling**: Inspect how deeply your Project depends on any imported package down to highlighted Go source lines.
-- **Project Metrics**: Lines of code, declaration/visibility counts, interface sizing, comment ratios, and built-in Cyclomatic/Cognitive complexity (in-process, zero external binaries required).
-- **Trends**: Historical metric trends sampled from Git commits/tags with local per-commit caching and live progress streaming.
-- **VCS Analysis**: Contributor activity and Bus Factor Risk across the Repository over configurable time windows.
+- **Dependency Structure Matrix (DSM)**: Package-to-package and 4×4 layer-aggregated matrices with weighted/boolean modes, mutual Dependency Cycle detection, optional test-file inclusion, and Graph Density metrics (Propagation Cost, Max Dependency Depth, and Tarjan SCC cycle count).
+- **Dependency Coupling**: Inspect how deeply your Project depends on any imported package down to highlighted Go source lines (with optional test-file inclusion).
+- **Project Metrics**: Production-only LOC, declaration/visibility counts, interface sizing, comment ratios, exported API doc coverage, function length & parameter metrics, built-in Cyclomatic/Cognitive complexity (in-process, zero external binaries required), plus a dedicated Test Metrics section (test LOC/files/functions and tested vs. untested production packages). Generated Go files (`// Code generated ... DO NOT EDIT.`) are automatically excluded from code and complexity metrics.
+- **Trends**: Historical metric trends sampled from Git commits/tags with local per-commit Protobuf caching and live SSE progress streaming—tracking size, Instability health, Cyclomatic/Cognitive complexity, doc coverage, test coverage, Propagation Cost, and Max Dependency Depth.
+- **VCS Analysis**: Contributor activity, Bus Factor Risk, and Churn × Complexity Hotspots across the Repository over configurable time windows.
+- **In-App Project Switcher & Cache**: Switch target Go Projects and organization prefixes directly from the web UI without restarting, backed by a per-commit Protobuf cache in your OS user cache directory (`go-architect/v4`).
 
 ## Screenshots
 
@@ -77,9 +78,13 @@ cd web && npm install && npm run dev
 # 3. Rebuild embedded frontend assets
 make web-build
 
-# 4. Run Go tests and vet
+# 4. Run Go tests, vet, and lint
 make test
 make vet
+make lint
+
+# 5. Install the binary with embedded frontend
+make install
 ```
 
 ## Acknowledgements
