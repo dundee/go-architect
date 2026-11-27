@@ -140,7 +140,7 @@ func New(initialPath string, orgPackages []string, distFS fs.FS) (*Server, error
 }
 
 func (s *Server) Handler() http.Handler {
-	return s.mux
+	return guard(s.mux)
 }
 
 func (s *Server) LoadProject(rawPath string, orgPackages []string) error {
