@@ -210,6 +210,12 @@ export function TrendsView({ project, refreshSignal }: TrendsViewProps) {
         </div>
 
         <div className="flex flex-wrap items-center gap-3">
+          <span
+            className="text-[11px] text-slate-400"
+            title="Files with Go's standard // Code generated ... DO NOT EDIT. header are excluded from snapshot metrics."
+          >
+            Excludes generated files
+          </span>
           {report && (
             <span className="inline-flex items-center gap-1.5 text-[11px] text-slate-500">
               <Database className="h-3.5 w-3.5 text-slate-400" />

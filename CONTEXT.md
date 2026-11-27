@@ -51,15 +51,15 @@ The longest directed dependency chain across the condensation DAG of strongly co
 The percentage of exported production types, functions, and methods on exported receivers that have Go doc comments.
 
 **Production vs. Test Packages**:
-Production metrics and architectural graphs exclude `*_test.go` files (and generated `// Code generated ... DO NOT EDIT.` files in code/complexity metrics) by default; Test Metrics track test LOC, test functions, and the ratio of production packages that have corresponding `*_test.go` files.
+Production metrics and architectural graphs exclude `*_test.go` files by default; Test Metrics track test LOC, test functions, and the ratio of production packages that have corresponding `*_test.go` files. Generated Go files matching Go's standard `ast.IsGenerated` header (`// Code generated ... DO NOT EDIT.` before `package`)—including generated `*_test.go` files—are automatically excluded from Project Metrics (code, test, and complexity), Hotspots, and Historical Trends snapshots, whereas live architectural views (Instability, Dependency Graph, DSM, and Coupling) still inspect all `.go` files.
 
 ### Repository & Team Health
 
 **Bus Factor Risk**:
-The maintainability risk caused by too few contributors modifying a path or file within the Repository's selected time window: `High` (1 contributor), `Moderate` (fewer than 3 contributors when the Repository has more than 4), or `Healthy`.
+The maintainability risk caused by too few contributors modifying a path or file within the Repository's selected time window: `High` (1 contributor), `Moderate` (fewer than 3 contributors when the Repository has more than 4), or `Healthy`. Reflects all files touched in Git history.
 
 **Hotspots**:
-Production Go files ranked by a combined score of Repository churn (commit frequency and modified lines) and AST complexity (Cyclomatic and Cognitive complexity) to highlight high-risk refactoring candidates.
+Non-generated production Go files ranked by a combined score of Repository churn (commit frequency and modified lines) and AST complexity (Cyclomatic and Cognitive complexity) to highlight high-risk refactoring candidates.
 
 ### Historical Trends
 

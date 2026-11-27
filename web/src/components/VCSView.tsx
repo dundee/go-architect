@@ -540,7 +540,7 @@ export function VCSView({ project, refreshSignal }: VCSViewProps) {
                     )}
                   </h2>
                   <p className="mt-0.5 text-xs text-slate-500">
-                    Production Go files ranked by combining recent change activity (commits &amp; modified lines) with complexity and size.
+                    Non-generated production Go files ranked by combining recent change activity (commits &amp; modified lines) with complexity and size.
                   </p>
                 </div>
 

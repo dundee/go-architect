@@ -142,7 +142,7 @@ export function MetricsView({ project, refreshSignal }: MetricsViewProps) {
           icon={<Code2 className="h-4 w-4 text-indigo-600" />}
           label="Total Lines of Code"
           value={data.loc.total.toLocaleString()}
-          hint={`${data.types.packages} packages · ${data.types.source_files} Go files`}
+          hint={`${data.types.packages} packages · ${data.types.source_files} Go files (excludes generated)`}
         />
         <MetricKpiCard
           icon={<Box className="h-4 w-4 text-sky-600" />}
