@@ -6,11 +6,11 @@ import (
 	"encoding/hex"
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"sort"
 	"strings"
 
+	"github.com/dundee/go-architect/internal/gitcmd"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -51,7 +51,7 @@ func ResolveCleanCommit(ctx context.Context, projectPath string) (string, bool) 
 		return "", false
 	}
 
-	shaOut, err := exec.CommandContext(ctx, "git", "-C", absPath, "rev-parse", "HEAD").Output()
+	shaOut, err := gitcmd.CommandContext(ctx, absPath, "rev-parse", "HEAD").Output()
 	if err != nil {
 		return "", false
 	}
@@ -60,7 +60,7 @@ func ResolveCleanCommit(ctx context.Context, projectPath string) (string, bool) 
 		return "", false
 	}
 
-	statusOut, err := exec.CommandContext(ctx, "git", "-C", absPath, "status", "--porcelain").Output()
+	statusOut, err := gitcmd.CommandContext(ctx, absPath, "status", "--porcelain").Output()
 	if err != nil {
 		return "", false
 	}
@@ -76,7 +76,7 @@ func ProjectSubdir(ctx context.Context, projectPath string) string {
 	if err != nil {
 		return "."
 	}
-	out, err := exec.CommandContext(ctx, "git", "-C", absProj, "rev-parse", "--show-toplevel").Output()
+	out, err := gitcmd.CommandContext(ctx, absProj, "rev-parse", "--show-toplevel").Output()
 	if err != nil {
 		return "."
 	}

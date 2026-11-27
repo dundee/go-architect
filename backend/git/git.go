@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/dundee/go-architect/internal/gitcmd"
 	"github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/plumbing"
 	"github.com/go-git/go-git/v5/plumbing/object"
@@ -38,13 +39,12 @@ func LoadRepositoryTeamCohesion(path string, since *time.Time) (*VCSAnalysisInfo
 }
 
 func loadViaNativeGit(repoPath string, since *time.Time) (*LogDetails, error) {
-	checkCmd := exec.Command("git", "-C", repoPath, "rev-parse", "--is-inside-work-tree")
+	checkCmd := gitcmd.Command(repoPath, "rev-parse", "--is-inside-work-tree")
 	if out, err := checkCmd.CombinedOutput(); err != nil {
 		return nil, fmt.Errorf("open git repository: %w (%s)", err, strings.TrimSpace(string(out)))
 	}
 
 	args := []string{
-		"-C", repoPath,
 		"log",
 		"--no-renames",
 		"--no-merges",
@@ -55,7 +55,7 @@ func loadViaNativeGit(repoPath string, since *time.Time) (*LogDetails, error) {
 		args = append(args, "--since="+since.UTC().Format(time.RFC3339))
 	}
 
-	cmd := exec.Command("git", args...)
+	cmd := gitcmd.Command(repoPath, args...)
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
 		return nil, err
@@ -190,13 +190,12 @@ func LoadFileCommitCounts(repoPath string, since *time.Time) (map[string]int, er
 }
 
 func loadFileCommitCountsNative(repoPath string, since *time.Time) (map[string]int, error) {
-	checkCmd := exec.Command("git", "-C", repoPath, "rev-parse", "--is-inside-work-tree")
+	checkCmd := gitcmd.Command(repoPath, "rev-parse", "--is-inside-work-tree")
 	if out, err := checkCmd.CombinedOutput(); err != nil {
 		return nil, fmt.Errorf("open git repository: %w (%s)", err, strings.TrimSpace(string(out)))
 	}
 
 	args := []string{
-		"-C", repoPath,
 		"log",
 		"--no-renames",
 		"--no-merges",
@@ -207,7 +206,7 @@ func loadFileCommitCountsNative(repoPath string, since *time.Time) (map[string]i
 		args = append(args, "--since="+since.UTC().Format(time.RFC3339))
 	}
 
-	cmd := exec.Command("git", args...)
+	cmd := gitcmd.Command(repoPath, args...)
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
 		return nil, err
