@@ -29,6 +29,14 @@ jobs:
         working-directory: web
         run: npm run build
 
+      - name: Verify committed web/dist is up to date
+        run: |
+          if [ -n "$(git status --porcelain web/dist)" ]; then
+            echo "::error::web/dist is stale. Run 'make web-build' and commit the result."
+            git status --porcelain web/dist
+            exit 1
+          fi
+
   go:
     name: Go Vet, Lint & Test
     runs-on: ubuntu-latest
@@ -50,4 +58,7 @@ jobs:
       - name: Run golangci-lint
         uses: golangci/golangci-lint-action@v9.3.0
         with:
-          version: latest
+          version: v2.15.0
+
+      - name: govulncheck
+        run: go run golang.org/x/vuln/cmd/govulncheck@v1.9.0 ./...

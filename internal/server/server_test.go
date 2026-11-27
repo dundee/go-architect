@@ -63,7 +63,7 @@ func TestServerEndpoints(t *testing.T) {
 	require.NoError(t, err)
 
 	t.Run("GET /api/health", func(t *testing.T) {
-		req := httptest.NewRequest(http.MethodGet, "/api/health", nil)
+		req := newLocalRequest(http.MethodGet, "/api/health", nil)
 		rec := httptest.NewRecorder()
 		srv.Handler().ServeHTTP(rec, req)
 
@@ -72,7 +72,7 @@ func TestServerEndpoints(t *testing.T) {
 	})
 
 	t.Run("GET /api/project", func(t *testing.T) {
-		req := httptest.NewRequest(http.MethodGet, "/api/project", nil)
+		req := newLocalRequest(http.MethodGet, "/api/project", nil)
 		rec := httptest.NewRecorder()
 		srv.Handler().ServeHTTP(rec, req)
 
@@ -85,7 +85,7 @@ func TestServerEndpoints(t *testing.T) {
 	})
 
 	t.Run("GET /api/instability", func(t *testing.T) {
-		req := httptest.NewRequest(http.MethodGet, "/api/instability", nil)
+		req := newLocalRequest(http.MethodGet, "/api/instability", nil)
 		rec := httptest.NewRecorder()
 		srv.Handler().ServeHTTP(rec, req)
 
@@ -96,7 +96,7 @@ func TestServerEndpoints(t *testing.T) {
 	})
 
 	t.Run("GET /api/dependency-graph", func(t *testing.T) {
-		req := httptest.NewRequest(http.MethodGet, "/api/dependency-graph", nil)
+		req := newLocalRequest(http.MethodGet, "/api/dependency-graph", nil)
 		rec := httptest.NewRecorder()
 		srv.Handler().ServeHTTP(rec, req)
 
@@ -110,7 +110,7 @@ func TestServerEndpoints(t *testing.T) {
 	})
 
 	t.Run("GET /api/dsm", func(t *testing.T) {
-		req := httptest.NewRequest(http.MethodGet, "/api/dsm", nil)
+		req := newLocalRequest(http.MethodGet, "/api/dsm", nil)
 		rec := httptest.NewRecorder()
 		srv.Handler().ServeHTTP(rec, req)
 
@@ -126,12 +126,12 @@ func TestServerEndpoints(t *testing.T) {
 	})
 
 	t.Run("GET /api/coupling", func(t *testing.T) {
-		reqMissing := httptest.NewRequest(http.MethodGet, "/api/coupling", nil)
+		reqMissing := newLocalRequest(http.MethodGet, "/api/coupling", nil)
 		recMissing := httptest.NewRecorder()
 		srv.Handler().ServeHTTP(recMissing, reqMissing)
 		require.Equal(t, http.StatusBadRequest, recMissing.Code)
 
-		req := httptest.NewRequest(http.MethodGet, "/api/coupling?dependency=github.com/go-architect/go-architect-lib/instability", nil)
+		req := newLocalRequest(http.MethodGet, "/api/coupling?dependency=github.com/go-architect/go-architect-lib/instability", nil)
 		rec := httptest.NewRecorder()
 		srv.Handler().ServeHTTP(rec, req)
 
@@ -145,7 +145,7 @@ func TestServerEndpoints(t *testing.T) {
 	})
 
 	t.Run("GET /api/metrics", func(t *testing.T) {
-		req := httptest.NewRequest(http.MethodGet, "/api/metrics", nil)
+		req := newLocalRequest(http.MethodGet, "/api/metrics", nil)
 		rec := httptest.NewRecorder()
 		srv.Handler().ServeHTTP(rec, req)
 
@@ -176,12 +176,12 @@ func TestServerEndpoints(t *testing.T) {
 		vcsSrv, err := New(gitRepoDir, nil, testDistFS())
 		require.NoError(t, err)
 
-		reqInvalid := httptest.NewRequest(http.MethodGet, "/api/vcs?months=-2", nil)
+		reqInvalid := newLocalRequest(http.MethodGet, "/api/vcs?months=-2", nil)
 		recInvalid := httptest.NewRecorder()
 		vcsSrv.Handler().ServeHTTP(recInvalid, reqInvalid)
 		require.Equal(t, http.StatusBadRequest, recInvalid.Code)
 
-		req := httptest.NewRequest(http.MethodGet, "/api/vcs?months=12", nil)
+		req := newLocalRequest(http.MethodGet, "/api/vcs?months=12", nil)
 		rec := httptest.NewRecorder()
 		vcsSrv.Handler().ServeHTTP(rec, req)
 
@@ -200,18 +200,18 @@ func TestServerEndpoints(t *testing.T) {
 		trendsSrv, err := New(gitRepoDir, nil, testDistFS())
 		require.NoError(t, err)
 
-		reqInvalid := httptest.NewRequest(http.MethodGet, "/api/trends?mode=invalid", nil)
+		reqInvalid := newLocalRequest(http.MethodGet, "/api/trends?mode=invalid", nil)
 		recInvalid := httptest.NewRecorder()
 		trendsSrv.Handler().ServeHTTP(recInvalid, reqInvalid)
 		require.Equal(t, http.StatusBadRequest, recInvalid.Code)
 
-		req := httptest.NewRequest(http.MethodGet, "/api/trends?mode=buckets&months=12&limit=3", nil)
+		req := newLocalRequest(http.MethodGet, "/api/trends?mode=buckets&months=12&limit=3", nil)
 		rec := httptest.NewRecorder()
 		trendsSrv.Handler().ServeHTTP(rec, req)
 		require.Equal(t, http.StatusOK, rec.Code)
 		require.Contains(t, rec.Body.String(), `"points"`)
 
-		reqStream := httptest.NewRequest(http.MethodGet, "/api/trends/stream?mode=buckets&months=12&limit=3", nil)
+		reqStream := newLocalRequest(http.MethodGet, "/api/trends/stream?mode=buckets&months=12&limit=3", nil)
 		recStream := httptest.NewRecorder()
 		trendsSrv.Handler().ServeHTTP(recStream, reqStream)
 		require.Equal(t, http.StatusOK, recStream.Code)
@@ -223,7 +223,8 @@ func TestServerEndpoints(t *testing.T) {
 
 	t.Run("POST /api/project rejects invalid path", func(t *testing.T) {
 		body := bytes.NewBufferString(`{"path":"/definitely/nonexistent/path/xyz"}`)
-		req := httptest.NewRequest(http.MethodPost, "/api/project", body)
+		req := newLocalRequest(http.MethodPost, "/api/project", body)
+		req.Header.Set("Content-Type", "application/json")
 		rec := httptest.NewRecorder()
 		srv.Handler().ServeHTTP(rec, req)
 
@@ -234,19 +235,19 @@ func TestServerEndpoints(t *testing.T) {
 	})
 
 	t.Run("SPA static & fallback routes", func(t *testing.T) {
-		reqAsset := httptest.NewRequest(http.MethodGet, "/assets/app.js", nil)
+		reqAsset := newLocalRequest(http.MethodGet, "/assets/app.js", nil)
 		recAsset := httptest.NewRecorder()
 		srv.Handler().ServeHTTP(recAsset, reqAsset)
 		require.Equal(t, http.StatusOK, recAsset.Code)
 		require.Equal(t, "console.log('ok')", recAsset.Body.String())
 
-		reqFallback := httptest.NewRequest(http.MethodGet, "/graph", nil)
+		reqFallback := newLocalRequest(http.MethodGet, "/graph", nil)
 		recFallback := httptest.NewRecorder()
 		srv.Handler().ServeHTTP(recFallback, reqFallback)
 		require.Equal(t, http.StatusOK, recFallback.Code)
 		require.Contains(t, recFallback.Body.String(), "Go Architect")
 
-		reqUnknownAPI := httptest.NewRequest(http.MethodGet, "/api/unknown", nil)
+		reqUnknownAPI := newLocalRequest(http.MethodGet, "/api/unknown", nil)
 		recUnknownAPI := httptest.NewRecorder()
 		srv.Handler().ServeHTTP(recUnknownAPI, reqUnknownAPI)
 		require.Equal(t, http.StatusNotFound, recUnknownAPI.Code)
@@ -271,7 +272,7 @@ func TestServerCommitCaching(t *testing.T) {
 		"/api/vcs?months=6",
 	} {
 		rec := httptest.NewRecorder()
-		srv.Handler().ServeHTTP(rec, httptest.NewRequest(http.MethodGet, path, nil))
+		srv.Handler().ServeHTTP(rec, newLocalRequest(http.MethodGet, path, nil))
 		require.Equal(t, http.StatusOK, rec.Code, path)
 
 		var meta struct {
@@ -296,7 +297,7 @@ func TestServerCommitCaching(t *testing.T) {
 		"/api/vcs?months=6",
 	} {
 		rec := httptest.NewRecorder()
-		srv.Handler().ServeHTTP(rec, httptest.NewRequest(http.MethodGet, path, nil))
+		srv.Handler().ServeHTTP(rec, newLocalRequest(http.MethodGet, path, nil))
 		require.Equal(t, http.StatusOK, rec.Code, path)
 
 		var meta struct {
@@ -308,13 +309,13 @@ func TestServerCommitCaching(t *testing.T) {
 
 	// 3. Trends reuses HEAD's complexity_*.pb written by /api/metrics.
 	recTrends := httptest.NewRecorder()
-	srv.Handler().ServeHTTP(recTrends, httptest.NewRequest(http.MethodGet, "/api/trends?mode=buckets&months=12", nil))
+	srv.Handler().ServeHTTP(recTrends, newLocalRequest(http.MethodGet, "/api/trends?mode=buckets&months=12", nil))
 	require.Equal(t, http.StatusOK, recTrends.Code)
 	require.Contains(t, recTrends.Body.String(), `"cyclomatic_complexity_avg"`)
 
 	// 3b. Hotspots combines VCS churn with per-file complexity.
 	recHotspots := httptest.NewRecorder()
-	srv.Handler().ServeHTTP(recHotspots, httptest.NewRequest(http.MethodGet, "/api/hotspots?months=6", nil))
+	srv.Handler().ServeHTTP(recHotspots, newLocalRequest(http.MethodGet, "/api/hotspots?months=6", nil))
 	require.Equal(t, http.StatusOK, recHotspots.Code)
 	var hotspotsResp HotspotsResponse
 	require.NoError(t, json.Unmarshal(recHotspots.Body.Bytes(), &hotspotsResp))
@@ -323,7 +324,7 @@ func TestServerCommitCaching(t *testing.T) {
 
 	// 4. Explicit refresh=true bypasses cache read.
 	recRefresh := httptest.NewRecorder()
-	srv.Handler().ServeHTTP(recRefresh, httptest.NewRequest(http.MethodGet, "/api/instability?refresh=true", nil))
+	srv.Handler().ServeHTTP(recRefresh, newLocalRequest(http.MethodGet, "/api/instability?refresh=true", nil))
 	require.Equal(t, http.StatusOK, recRefresh.Code)
 	var metaRefresh struct {
 		Cached bool `json:"cached"`
@@ -334,7 +335,7 @@ func TestServerCommitCaching(t *testing.T) {
 	// 5. Dirty working tree bypasses commit cache.
 	require.NoError(t, os.WriteFile(filepath.Join(gitRepoDir, "untracked.go"), []byte("package main\n"), 0o644))
 	recDirty := httptest.NewRecorder()
-	srv.Handler().ServeHTTP(recDirty, httptest.NewRequest(http.MethodGet, "/api/instability", nil))
+	srv.Handler().ServeHTTP(recDirty, newLocalRequest(http.MethodGet, "/api/instability", nil))
 	require.Equal(t, http.StatusOK, recDirty.Code)
 	var metaDirty struct {
 		Cached bool `json:"cached"`

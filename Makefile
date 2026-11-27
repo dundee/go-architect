@@ -1,4 +1,4 @@
-.PHONY: web-install web-build build install run test lint vet install-dependencies
+.PHONY: web-install web-build build install run test lint vet vulncheck install-dependencies
 
 web-install:
 	cd web && npm install
@@ -24,5 +24,8 @@ lint:
 vet:
 	go vet ./...
 
+vulncheck:
+	go run golang.org/x/vuln/cmd/govulncheck@v1.9.0 ./...
+
 install-dependencies:
-	go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@latest
+	go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.15.0

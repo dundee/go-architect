@@ -6,6 +6,7 @@ import (
 	"os/exec"
 	"strings"
 
+	"github.com/dundee/go-architect/internal/gitcmd"
 	"github.com/go-architect/go-architect-lib/repository"
 )
 
@@ -14,7 +15,7 @@ func loadRepositoryInfo(path string) (*repository.RepositoryInfo, error) {
 		return repository.LoadRepositoryInfo(path)
 	}
 
-	out, err := exec.Command("git", "-C", path, "status", "--porcelain=v2", "--branch").Output()
+	out, err := gitcmd.Command(path, "status", "--porcelain=v2", "--branch").Output()
 	if err != nil {
 		return nil, err
 	}
@@ -45,7 +46,7 @@ func loadRepositoryInfo(path string) (*repository.RepositoryInfo, error) {
 	}
 
 	remoteURL := "unknown"
-	if remoteOut, rErr := exec.Command("git", "-C", path, "remote", "get-url", "origin").Output(); rErr == nil {
+	if remoteOut, rErr := gitcmd.Command(path, "remote", "get-url", "origin").Output(); rErr == nil {
 		if trimmed := strings.TrimSpace(string(remoteOut)); trimmed != "" {
 			remoteURL = trimmed
 		}
