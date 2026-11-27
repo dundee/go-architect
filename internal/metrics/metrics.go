@@ -192,7 +192,7 @@ func Calculate(projectPath, mainPackage string, opts Options) (*Result, error) {
 
 func processFile(fw fileWork, opts Options) (fileMetrics, bool) {
 	data, err := os.ReadFile(fw.absPath)
-	if err != nil {
+	if err != nil || complexity.IsGeneratedSource(data) {
 		return fileMetrics{}, false
 	}
 

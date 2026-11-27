@@ -23,7 +23,7 @@ func DefaultDir() (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("resolve user cache dir: %w", err)
 	}
-	return filepath.Join(base, "go-architect", "v3"), nil
+	return filepath.Join(base, "go-architect", "v4"), nil
 }
 
 func NewStore(dir string) *Store {

@@ -129,9 +129,14 @@ func Calculate(projectPath, mainPackage string, topN int) (*Report, error) {
 }
 
 func processFile(absRoot, filePath, mainPackage string, out *workerResult) {
+	data, readErr := os.ReadFile(filePath)
+	if readErr != nil || IsGeneratedSource(data) {
+		return
+	}
+
 	// Per-file FileSet avoids shared mutex contention and keeps memory bounded.
 	fset := token.NewFileSet()
-	astFile, parseErr := parser.ParseFile(fset, filePath, nil, 0)
+	astFile, parseErr := parser.ParseFile(fset, filePath, data, 0)
 	if parseErr != nil {
 		// Skip unparseable/generated scratch files gracefully.
 		return
@@ -293,7 +298,7 @@ func CalculatePerFile(projectPath, mainPackage string) (map[string]FileStats, er
 
 func processFileStats(absRoot, filePath, mainPackage string) (FileStats, bool) {
 	data, err := os.ReadFile(filePath)
-	if err != nil {
+	if err != nil || IsGeneratedSource(data) {
 		return FileStats{}, false
 	}
 

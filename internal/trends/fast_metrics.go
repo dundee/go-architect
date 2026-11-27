@@ -112,6 +112,9 @@ func measureCommitFromTree(
 			return nil
 		}
 		data := []byte(raw)
+		if complexity.IsGeneratedSource(data) {
+			return nil
+		}
 		dir := path.Dir(relToMod)
 		name := path.Base(relToMod)
 		byPath[relToMod] = data
@@ -432,6 +435,9 @@ func analyzeTreeFiles(files []treeFile, modPath string, includeComplexity bool) 
 }
 
 func parseSingleTreeFile(tf treeFile, modPath string, includeComplexity bool) (parsedFileMetrics, bool) {
+	if complexity.IsGeneratedSource(tf.content) {
+		return parsedFileMetrics{}, false
+	}
 	isTest := strings.HasSuffix(tf.name, "_test.go")
 	parseMode := parser.ParseComments
 	if isTest {
