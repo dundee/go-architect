@@ -32,14 +32,14 @@ type treeFile struct {
 }
 
 type parsedFileMetrics struct {
-	dir              string
-	pkgLabel         string
-	isTest           bool
-	loc              int
-	testFunctions    int
-	commentLines     int
-	structs          int
-	interfaces       int
+	dir                string
+	pkgLabel           string
+	isTest             bool
+	loc                int
+	testFunctions      int
+	commentLines       int
+	structs            int
+	interfaces         int
 	functions          int
 	methods            int
 	fnLOCSum           int
@@ -47,11 +47,11 @@ type parsedFileMetrics struct {
 	exportedTotal      int
 	exportedDocumented int
 	interfaceMethods   []int
-	imports          []string
-	cycloDetails     []complexity.Detail
-	cognitDetails    []complexity.Detail
-	cycloSum         int
-	cognitSum        int
+	imports            []string
+	cycloDetails       []complexity.Detail
+	cognitDetails      []complexity.Detail
+	cycloSum           int
+	cognitSum          int
 }
 
 func measureCommitFromTree(
@@ -257,15 +257,15 @@ func analyzeTreeFiles(files []treeFile, modPath string, includeComplexity bool) 
 	}
 
 	var (
-		totalLOC, sourceFiles                  int
-		testLOC, testFiles, testFunctions      int
+		totalLOC, sourceFiles                   int
+		testLOC, testFiles, testFunctions       int
 		structs, interfaces, functions, methods int
-		fnLOCSum, fnParamSum                   int
-		exportedTotal, exportedDocumented      int
-		commentsTotal                          int
-		ifaceMethodSum, ifaceCount             int
-		cycloDetails, cognitDetails            []complexity.Detail
-		cycloSum, cognitSum                    int
+		fnLOCSum, fnParamSum                    int
+		exportedTotal, exportedDocumented       int
+		commentsTotal                           int
+		ifaceMethodSum, ifaceCount              int
+		cycloDetails, cognitDetails             []complexity.Detail
+		cycloSum, cognitSum                     int
 	)
 
 	// Collect all package names first (excluding *_test.go-only packages) so afferent/efferent only tracks production packages.

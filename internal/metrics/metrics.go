@@ -48,20 +48,20 @@ type fileWork struct {
 }
 
 type fileMetrics struct {
-	work          fileWork
-	loc           int
-	commentLines  int
-	testFunctions int
-	counts        typesCounts
+	work               fileWork
+	loc                int
+	commentLines       int
+	testFunctions      int
+	counts             typesCounts
 	ifaceInfos         []interfaces.InterfaceInfo
 	funcDetails        []cache.FunctionDetail
 	exportedTotal      int
 	exportedDocumented int
 	undocumented       []cache.DocCoverageItem
 	cycloDetails       []complexity.Detail
-	cognitDetails []complexity.Detail
-	cycloSum      int
-	cognitSum     int
+	cognitDetails      []complexity.Detail
+	cycloSum           int
+	cognitSum          int
 }
 
 type typesCounts struct {
@@ -368,13 +368,13 @@ func aggregateBase(mainPackage string, batches [][]fileMetrics) *cache.MetricsBa
 	pkgTypesMap := make(map[string]*types.PackageTypes)
 
 	var (
-		totalLOC          int
-		totalFiles        int
-		commentLines      int
-		filesWithComments int
-		testLOC           int
-		testFileCount     int
-		testFuncCount     int
+		totalLOC           int
+		totalFiles         int
+		commentLines       int
+		filesWithComments  int
+		testLOC            int
+		testFileCount      int
+		testFuncCount      int
 		allIfaces          []interfaces.InterfaceInfo
 		allFuncs           []cache.FunctionDetail
 		exportedTotal      int
