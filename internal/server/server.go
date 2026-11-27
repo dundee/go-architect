@@ -75,9 +75,7 @@ type CouplingResponse struct {
 }
 
 type ComplexityResult struct {
-	Data        *complexity.Output `json:"data"`
-	Error       string             `json:"error,omitempty"`
-	InstallHint string             `json:"install_hint,omitempty"`
+	Data *complexity.Output `json:"data"`
 }
 
 type MetricsResponse struct {

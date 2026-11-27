@@ -177,8 +177,6 @@ export interface GoCycloOutput {
 
 export interface ComplexityResult {
   data: GoCycloOutput | null
-  error?: string
-  install_hint?: string
 }
 
 export interface TestMetrics {
